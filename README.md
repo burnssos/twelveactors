@@ -23,7 +23,7 @@ engine-shaped, not mod-shaped: HL2:DM, CS:S and TF2 expose the same hooks.
 
 ## What it does
 
-- **Bots talk back.** Address a bot by name in chat and it answers, in character,
+- **Bots text chat back.** Address a bot by name in chat and it answers, in character,
   with a line short enough to be spoken.
 - **Real voices.** Every line is matched to an existing `.wav` inside the game's
   `dod_pak_dir.vpk` (read in place — nothing is extracted to disk) and played as
