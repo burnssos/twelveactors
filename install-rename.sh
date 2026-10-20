@@ -62,10 +62,16 @@ say "preflight"
 [ ! -e "$OPT_NEW" ]  || die "$OPT_NEW already exists; refusing to overwrite"
 [ -d "$DATA_OLD" ]   || die "no data dir at $DATA_OLD"
 [ ! -e "$DATA_NEW" ] || die "$DATA_NEW already exists; refusing to overwrite"
-for f in twelveactors.smx ta_bots_rcbot2.smx ta_botjoin.smx ta_humancap.smx ta_proximity.smx; do
-    [ -s "$SRC/build/$f" ] || die "missing $SRC/build/$f — run the post-rename build first"
+SPCOMP=$SM_DIR/scripting/spcomp64
+[ -x "$SPCOMP" ] || SPCOMP=$SM_DIR/scripting/spcomp
+[ -x "$SPCOMP" ] || die "no spcomp in $SM_DIR/scripting"
+INCLUDE=$SM_DIR/scripting/include
+for f in twelveactors ta_bots_rcbot2 ta_botjoin ta_humancap ta_proximity ta_cmdspy; do
+    [ -s "$SRC/plugin/$f.sp" ] || die "missing $SRC/plugin/$f.sp"
 done
-[ -s "$SRC/plugin/ta_cmdspy.smx" ] || die "missing $SRC/plugin/ta_cmdspy.smx"
+[ -s "$SRC/tools/label_radio.py" ] || die "missing $SRC/tools/label_radio.py"
+BUILD_DIR=$(mktemp -d "${TMPDIR:-/tmp}/ta-rename.XXXXXX")
+trap 'rm -rf "$BUILD_DIR"' EXIT
 [ -s "$SRC/systemd/$UNIT_NEW" ]    || die "missing $SRC/systemd/$UNIT_NEW"
 # the script must still contain the OLD names it has to match live; if the tree-wide
 # rename pass ever touches this file, these two tripwires fire instead of a silent no-op
@@ -84,7 +90,8 @@ fi
 run systemctl stop "$UNIT_OLD" || true
 
 # ------------------------------------------------------------ 2. data dir
-say "move data dir (all 19 files, incl. state.sqlite + wal/shm, config.json 0600)"
+DATA_FILES=$(find "$DATA_OLD" -type f | wc -l)
+say "move data dir ($DATA_FILES files, incl. state.sqlite + wal/shm, config.json 0600)"
 run mv "$DATA_OLD" "$DATA_NEW"
 
 # ------------------------------------------------------------- 3. /opt tree
@@ -105,19 +112,33 @@ fi
 run systemctl daemon-reload
 
 # ------------------------------------------------- 4b. the ta-radio helper
-say "rename the ta-radio helper (label_radio.py entry point)"
-if [ -e /usr/local/bin/biv-radio ] && [ ! -e /usr/local/bin/ta-radio ]; then
-    run mv /usr/local/bin/biv-radio /usr/local/bin/ta-radio
-else
-    note "no /usr/local/bin/biv-radio to rename (or ta-radio already present)"
+say "install ta-radio from the tree (the deployed biv-radio still points at data/bivouac)"
+if [ -e /usr/local/bin/biv-radio ]; then
+    run mv /usr/local/bin/biv-radio /usr/local/bin/biv-radio.pre-rename
 fi
+run install -o root -g root -m 755 "$SRC/tools/label_radio.py" /usr/local/bin/ta-radio
+note "rollback: mv /usr/local/bin/biv-radio.pre-rename /usr/local/bin/biv-radio"
 
 # ------------------------------------------------------------- 5. plugins
+say "compile the six plugins from source with the server's spcomp (build/*.smx is not trusted: two different copies of twelveactors.smx are committed)"
+note "compiler: $SPCOMP"
+if [ "$DRY_RUN" -eq 0 ]; then
+    cp "$SRC"/plugin/twelveactors.sp "$SRC"/plugin/ta_bots_rcbot2.sp \
+       "$SRC"/plugin/ta_botjoin.sp "$SRC"/plugin/ta_humancap.sp \
+       "$SRC"/plugin/ta_proximity.sp "$SRC"/plugin/ta_cmdspy.sp "$BUILD_DIR"/
+    ( cd "$BUILD_DIR" && for f in *.sp; do
+          "$SPCOMP" -i"$INCLUDE" "$f" >/dev/null || exit 1
+          [ -s "${f%.sp}.smx" ] || { echo "compile produced no ${f%.sp}.smx" >&2; exit 1; }
+      done ) || die "compile failed — nothing was installed"
+    for f in "$BUILD_DIR"/*.smx; do note "built $(basename "$f") $(stat -c%s "$f") bytes"; done
+else
+    note "would compile six .sp from $SRC/plugin into a temp dir, then install those"
+fi
+
 say "install the renamed .smx set and remove the old bivouac/biv_*.smx (removal, not shadowing)"
-for p in twelveactors ta_bots_rcbot2 ta_botjoin ta_humancap ta_proximity; do
-    run install -o dod -g dod -m 644 "$SRC/build/$p.smx" "$PLUGINS/$p.smx"
+for p in twelveactors ta_bots_rcbot2 ta_botjoin ta_humancap ta_proximity ta_cmdspy; do
+    run install -o dod -g dod -m 644 "$BUILD_DIR/$p.smx" "$PLUGINS/$p.smx"
 done
-run install -o dod -g dod -m 644 "$SRC/plugin/ta_cmdspy.smx" "$PLUGINS/ta_cmdspy.smx"
 for old in bivouac.smx bivouac_bots_rcbot2.smx biv_botjoin.smx biv_humancap.smx biv_proximity.smx biv_cmdspy.smx biv_echo.smx; do
     if [ -f "$PLUGINS/$old" ]; then
         run mv "$PLUGINS/$old" "$PLUGINS/$old.pre-rename"
@@ -126,7 +147,9 @@ done
 note "*.smx.bak.* files are inert (extension is not .smx) and are left alone"
 
 say "install renamed .sp sources, retire the old ones"
-run install -o dod -g dod -m 644 "$SRC/plugin/twelveactors.sp" "$SRC/plugin/ta_bots_rcbot2.sp" "$SRC/plugin/ta_proximity.sp" "$SCRIPTING/"
+for f in twelveactors ta_bots_rcbot2 ta_botjoin ta_humancap ta_proximity ta_cmdspy; do
+    run install -o dod -g dod -m 644 "$SRC/plugin/$f.sp" "$SCRIPTING/$f.sp"
+done
 for old in bivouac.sp bivouac_bots_rcbot2.sp biv_proximity.sp; do
     if [ -f "$SCRIPTING/$old" ]; then
         run mv "$SCRIPTING/$old" "$SCRIPTING/$old.pre-rename"
@@ -137,9 +160,12 @@ done
 say "write ta_*.cfg with sm_ta_* names, retire the old cfg files"
 cfg_map() {  # cfg_map <old> <new>
     local old=$1 new=$2
+    local oldbase=${old%.cfg} newbase=${new%.cfg}
     printf ' + sed sm_biv[ouac]*_ -> sm_ta_  %s > %s\n' "$old" "$new"
     if [ "$DRY_RUN" -eq 0 ]; then
-        sed -e 's/\bsm_bivouac_/sm_ta_/g' -e 's/\bsm_biv_/sm_ta_/g' "$CFGDIR/$old" > "$CFGDIR/$new"
+        sed -e 's/\bsm_bivouac_/sm_ta_/g' -e 's/\bsm_biv_/sm_ta_/g' \
+            -e "s/\\b${oldbase}\\.smx\\b/${newbase}.smx/g" \
+            "$CFGDIR/$old" > "$CFGDIR/$new"
         chown dod:dod "$CFGDIR/$new"
         chmod 644 "$CFGDIR/$new"
     fi
