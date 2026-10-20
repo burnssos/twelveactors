@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twelve Actors — AI bot dialogue for Source-engine game servers</title>
+<meta name="description" content="Twelve Actors binds each Source-engine bot slot to a persona with a voice, lets an LLM write short in-character lines, and plays them back using the voice clips the game already ships. SourceMod + RCBot2, built against Day of Defeat: Source.">
+<meta property="og:title" content="Twelve Actors">
+<meta property="og:description" content="A conversation layer for Source-engine bots. No TTS, no voice cloning, no GPU. SourceMod + RCBot2.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d0f12'/><text x='16' y='23' font-family='monospace' font-size='17' font-weight='bold' fill='%23d0a24a' text-anchor='middle'>12</text></svg>">
+<style>
+  :root{
+    --bg:#0b0d10;
+    --panel:#12161b;
+    --panel-2:#171c22;
+    --line:#242c35;
+    --text:#dfe4ea;
+    --dim:#8b98a5;
+    --dimmer:#63707d;
+    --accent:#d0a24a;
+    --accent-dim:#8a6c2f;
+    --allied:#7fa7d4;
+    --axis:#c98a7a;
+    --ok:#79b47a;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(208,162,74,.28)}
+  a:hover{border-bottom-color:var(--accent);color:#e8bd68}
+  .wrap{max-width:920px;margin:0 auto;padding:0 24px}
+  header.hero{
+    border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(900px 320px at 18% -30%, rgba(208,162,74,.10), transparent 70%),
+      radial-gradient(700px 300px at 85% -10%, rgba(127,167,212,.07), transparent 70%);
+    padding:64px 0 52px;
+  }
+  .eyebrow{
+    font:600 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 20px;display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent-dim)}
+  h1{
+    font-size:clamp(34px,6vw,56px);line-height:1.02;letter-spacing:-.025em;margin:0 0 18px;font-weight:800;
+  }
+  h1 .subtle{color:var(--dimmer);font-weight:400}
+  .lede{font-size:clamp(16px,2.1vw,19px);color:#b9c3ce;max-width:60ch;margin:0 0 28px}
+  .lede strong{color:var(--text);font-weight:600}
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 30px;padding:0;list-style:none}
+  .badges li{
+    font:600 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;
+    padding:7px 11px;border:1px solid var(--line);border-radius:5px;color:var(--dim);background:var(--panel);
+  }
+  .badges li.hot{color:var(--accent);border-color:var(--accent-dim);background:rgba(208,162,74,.07)}
+  .cta{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .btn{
+    display:inline-block;padding:11px 18px;border-radius:6px;font-weight:600;font-size:14px;
+    border:1px solid var(--accent);background:var(--accent);color:#14100a;border-bottom-color:var(--accent);
+  }
+  .btn:hover{background:#e8bd68;border-color:#e8bd68;color:#14100a}
+  .btn.ghost{background:transparent;color:var(--text);border-color:var(--line)}
+  .btn.ghost:hover{border-color:var(--accent-dim);color:var(--accent);background:rgba(208,162,74,.06)}
+  main{padding:0 0 20px}
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  h2{
+    font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);
+    margin:0 0 26px;font-family:var(--mono);font-weight:600;
+  }
+  h2 b{color:var(--text);font-weight:600}
+  h3{font-size:16px;margin:0 0 8px;letter-spacing:-.01em}
+  p{margin:0 0 16px;color:#b9c3ce}
+  p:last-child{margin-bottom:0}
+  .grid{display:grid;gap:14px}
+  @media(min-width:680px){.grid.two{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:20px}
+  .card h3{color:var(--text)}
+  .card p{font-size:14.5px;margin:0;color:var(--dim)}
+  .card .tag{font:600 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-dim);display:block;margin-bottom:10px}
+  pre{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+    padding:18px 20px;overflow-x:auto;margin:0 0 16px;
+    font:13px/1.6 var(--mono);color:#c6cfd9;
+  }
+  pre .c{color:var(--dimmer)}
+  pre .k{color:var(--accent)}
+  pre .s{color:var(--ok)}
+  code{font-family:var(--mono);font-size:.92em;background:rgba(255,255,255,.05);padding:2px 5px;border-radius:3px;color:#cdd6e0}
+  pre code{background:none;padding:0;font-size:1em;color:inherit}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin:0 0 8px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font:600 10.5px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);white-space:nowrap}
+  td:first-child{color:var(--text);white-space:nowrap}
+  td{color:var(--dim)}
+  tr:last-child td{border-bottom:0}
+  .cast{display:grid;gap:14px}
+  @media(min-width:560px){.cast{grid-template-columns:1fr 1fr}}
+  .roster{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+  .roster .rh{
+    padding:10px 16px;font:600 10.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+    border-bottom:1px solid var(--line);
+  }
+  .roster.a .rh{color:var(--allied);background:rgba(127,167,212,.07)}
+  .roster.b .rh{color:var(--axis);background:rgba(201,138,122,.07)}
+  .roster ul{list-style:none;margin:0;padding:6px 0}
+  .roster li{
+    padding:7px 16px;font:13.5px/1.4 var(--mono);color:#c6cfd9;
+    display:flex;justify-content:space-between;gap:12px;
+  }
+  .roster li span{color:var(--dimmer)}
+  .note{
+    border-left:2px solid var(--accent-dim);background:rgba(208,162,74,.05);
+    padding:14px 18px;border-radius:0 6px 6px 0;font-size:14.5px;color:#b9c3ce;margin:0 0 16px;
+  }
+  .note strong{color:var(--text)}
+  footer{padding:36px 0 56px;color:var(--dimmer);font-size:13.5px;display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between;border-top:1px solid var(--line)}
+  .links{display:grid;gap:10px;list-style:none;padding:0;margin:0}
+  .links li{display:flex;gap:12px;align-items:baseline;font-size:14.5px}
+  .links .path{font:12.5px/1 var(--mono);color:var(--dimmer);min-width:190px}
+  @media(max-width:560px){.links .path{min-width:0}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">SourceMod · RCBot2 · Day of Defeat: Source</p>
+    <h1>Twelve Actors<br><span class="subtle">bots that talk back, in their own voices.</span></h1>
+    <p class="lede">
+      A conversation layer for Source-engine bots. Twelve Actors binds each bot slot to a persona
+      with a voice, lets an LLM write short in-character lines, and plays the line back using
+      <strong>the voice clips the game already ships</strong> — no TTS, no audio generation,
+      no voice cloning, no GPU.
+    </p>
+    <ul class="badges">
+      <li class="hot">MPL-2.0</li>
+      <li>12 personas</li>
+      <li>232 shipped clips</li>
+      <li>stdlib Python only</li>
+      <li>zero tokens when empty</li>
+    </ul>
+    <div class="cta">
+      <a class="btn" href="https://github.com/burnssos/twelveactors">View on GitHub</a>
+      <a class="btn ghost" href="https://github.com/burnssos/twelveactors/blob/main/HERMES-REBUILD.md">Rebuild from scratch</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <h2><b>What it does</b></h2>
+      <div class="grid two">
+        <div class="card">
+          <span class="tag">chat</span>
+          <h3>Bots text chat back</h3>
+          <p>Address a bot by name in team chat and it answers, in character, with a line short enough to be spoken.</p>
+        </div>
+        <div class="card">
+          <span class="tag">voice</span>
+          <h3>Real voices, no new assets</h3>
+          <p>Each line is matched to an existing <code>.wav</code> inside the game's <code>dod_pak_dir.vpk</code> — read in place, nothing extracted to disk — and played as that bot's speech sound.</p>
+        </div>
+        <div class="card">
+          <span class="tag">cast</span>
+          <h3>A cast, not a crowd</h3>
+          <p>Twelve hand-written personas bound to RCBot2 profile slots 1–12. The bot module adds them in order and renames strays instead of kicking them, because a kick costs a death notice in the kill feed.</p>
+        </div>
+        <div class="card">
+          <span class="tag">events</span>
+          <h3>More than chat</h3>
+          <p>Deaths and round starts can trigger a bark, and in-game quick-key radio is captured and answered.</p>
+        </div>
+        <div class="card">
+          <span class="tag">cost</span>
+          <h3>Silent when nobody listens</h3>
+          <p>With zero human players the plugin stops writing events and the daemon refuses to spend a model turn. Read cursors keep moving, so the first person in never hears a stale backlog.</p>
+        </div>
+        <div class="card">
+          <span class="tag">protocol</span>
+          <h3>Text-first, engine-safe</h3>
+          <p>Two append-only TSV files between plugin and daemon. No HTTP, sockets or named pipes in the hot path: if the daemon is down the game does not care, and it resumes when it comes back.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2><b>How the pieces connect</b></h2>
+      <pre><span class="c"> player chat  ──┐</span>
+<span class="c"> quick keys   ──┤   SourceMod plugin        append-only TSV        Python daemon</span>
+<span class="c"> deaths/rounds──┴──►</span>  twelveactors.sp ──►  <span class="k">in.tsv</span>     ──►  twelveactors/bridge.py
+                    ta_bots_rcbot2.sp                       ├─ personae (sqlite)
+                    ta_botjoin.sp  <span class="c">(no team-change death)</span>   │
+                                                            ├─ LLM (OpenAI-compatible)
+                                                            └─ voice clip picker
+                                  <span class="k">out.tsv</span>  ◄──  clip + chat line
+                                     │
+        twelveactors.sp plays the clip on the speaking bot</pre>
+      <p>The daemon's HTTP listener is bound to <code>127.0.0.1:8377</code> — localhost only. No public address and no port forward are needed to run it.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2><b>The cast</b></h2>
+      <p>Two voices ship with the game — one male US, one male German — so pitch is the per-bot distinction. It travels in the sound packet, so it costs nothing: no new files, no client download, no <code>precache_budget</code> change.</p>
+      <div class="cast">
+        <div class="roster a">
+          <div class="rh">Allied</div>
+          <ul>
+            <li>John <span>97</span></li>
+            <li>Paul <span>103</span></li>
+            <li>Frank <span>108</span></li>
+            <li>Donald <span>94</span></li>
+            <li>Thomas <span>111</span></li>
+            <li>Edward <span>100</span></li>
+          </ul>
+        </div>
+        <div class="roster b">
+          <div class="rh">Axis</div>
+          <ul>
+            <li>Walter <span>96</span></li>
+            <li>Herbert <span>102</span></li>
+            <li>Alfred <span>107</span></li>
+            <li>Kurt <span>93</span></li>
+            <li>Otto <span>110</span></li>
+            <li>Rolf <span>99</span></li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top:16px;font-size:14px;color:var(--dimmer)">Numbers are clip pitch (100 = untouched). <code>sm_ta_reload</code> re-reads the table live.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2><b>Requirements</b></h2>
+      <table>
+        <tr><th>Thing</th><th>Version used</th><th>Notes</th></tr>
+        <tr><td>DoD:S dedicated server</td><td>app 232290</td><td>32-bit binary; on Arch enable <code>multilib</code></td></tr>
+        <tr><td>MetaMod:Source</td><td>1.11+</td><td>the loader SourceMod runs under</td></tr>
+        <tr><td>SourceMod</td><td>1.12.0-git7255</td><td>1.11 crashes on current srcds builds</td></tr>
+        <tr><td>RCBot2</td><td>2.0-alpha8</td><td>supplies the bots and the console surface the bot module drives</td></tr>
+        <tr><td>Python</td><td>3.9+</td><td>standard library only — no pip install step</td></tr>
+        <tr><td>Linux with systemd</td><td>—</td><td>developed on Omarchy/Arch, x86-64</td></tr>
+      </table>
+      <div class="note" style="margin-top:20px">
+        <strong>No API key is needed just to play.</strong> With no model configured the daemon falls back
+        to clip-only barks. Add an OpenAI-compatible endpoint when you want generated lines.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2><b>Install</b></h2>
+<pre><span class="k">git clone</span> https://github.com/burnssos/twelveactors.git twelveactors
+<span class="k">cd</span> twelveactors
+<span class="k">sudo</span> TWELVEACTORS_API_BASE=<span class="s">https://api.venice.ai/api/v1</span> \
+     TWELVEACTORS_API_KEY=<span class="s">&lt;your-key&gt;</span> \
+     TWELVEACTORS_MODEL=<span class="s">deepseek-v4-flash-0731</span> \
+     ./install.sh</pre>
+      <p><code>install.sh</code> compiles the five plugins, installs the daemon to <code>/opt/twelveactors</code>, writes <code>config.json</code>, indexes the voice clips, binds the cast to the RCBot2 profile slots, pins <code>min_bots 0</code> / <code>max_bots 12</code>, installs and starts the service, and restarts the game so the plugins load. It must run as root and is idempotent — re-running it is the supported way to ship a change.</p>
+      <p>Omit the three <code>TWELVEACTORS_*</code> variables and the installer asks for them on a terminal, reading the key with echo off. With no terminal it writes <code>&lt;YOUR_API_KEY&gt;</code> placeholders and prints the file to edit, so a botched install cannot look like a working one.</p>
+      <h3 style="margin:26px 0 12px">Choosing a model</h3>
+      <p>The daemon needs an OpenAI-compatible <code>/chat/completions</code> that returns a JSON object and respects <code>max_tokens</code>. <code>deepseek-v4-flash-0731</code> is the recommendation — cheap, about $0.0002 per measured reply — not a requirement. Switch later without touching the tree:</p>
+      <pre><span class="k">sudo</span> bash install-model-switch.sh &lt;model-id&gt;</pre>
+      <p>Check any candidate with one call shaped like the daemon sends (JSON object response format, <code>max_tokens</code> 600): a model without JSON mode returns 400 and every line falls back to clips, and a reasoning model can spend the whole budget thinking and return nothing.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2><b>Repository</b></h2>
+      <ul class="links">
+        <li><span class="path">README.md</span><a href="https://github.com/burnssos/twelveactors/blob/main/README.md">Overview and configuration</a></li>
+        <li><span class="path">HERMES-REBUILD.md</span><a href="https://github.com/burnssos/twelveactors/blob/main/HERMES-REBUILD.md">Every install step explained</a></li>
+        <li><span class="path">plugin/</span><a href="https://github.com/burnssos/twelveactors/tree/main/plugin">The five SourcePawn plugins</a></li>
+        <li><span class="path">twelveactors/</span><a href="https://github.com/burnssos/twelveactors/tree/main/twelveactors">Daemon, VPK reader, clip index</a></li>
+        <li><span class="path">config/voices.example.tsv</span><a href="https://github.com/burnssos/twelveactors/blob/main/config/voices.example.tsv">Curated pitch table</a></li>
+        <li><span class="path">LICENSE</span><a href="https://github.com/burnssos/twelveactors/blob/main/LICENSE">MPL-2.0</a></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap" style="display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between;width:100%">
+    <span>Twelve Actors — MPL-2.0</span>
+    <span>Built for Day of Defeat: Source; engine-shaped, not mod-shaped.</span>
+  </div>
+</footer>
+
+</body>
+</html>
