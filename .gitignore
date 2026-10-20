@@ -1,0 +1,21 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Runtime state (regenerated, machine-specific)
+logs/
+state/*.sqlite
+state/*.sqlite-wal
+state/*.sqlite-shm
+state/daemon.log
+state/*.bak.*
+
+# Local backups / scratch
+backup-rename-*/
+*.tar.gz
+*.zip
+
+# Editor / OS
+*.swp
+*~
+.DS_Store

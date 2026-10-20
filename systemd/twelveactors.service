@@ -1,0 +1,23 @@
+[Unit]
+Description=Twelve Actors NPC conversation daemon (Day of Defeat: Source)
+After=network-online.target dods.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dod
+Group=dod
+Environment=PYTHONPATH=/opt/twelveactors
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/twelveactors
+ExecStart=/usr/bin/python3 -m twelveactors --data /srv/dods/dod/addons/sourcemod/data/twelveactors serve
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/dods/dod/addons/sourcemod/data/twelveactors
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,131 @@
+== dod_anzio  (474 used waypoints, 5 objectives)
+   spawn centres: allies (-528, -2194, -580)  axis (1748, 2782, -370)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   well_flag        -1430,-383,-312                78     1     3     1    0    3    0    0
+   bridge_flag      1080,-276,-346                 36     1     0     2    3    2    0    1
+   plaza_flag       -698,923,-410                  20     1     2     2    1    4    1    0
+   alley_flag       448,800,-383                   18     1     0     0    0    1    0    0
+   fountain_flag    1408,1692,-226                 74     1     3     3    2    6    0    2
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 41, 'axis_half': 28, 'mid': 0} of 69
+   allies spawns: nearest waypoint median 86, worst 197, >200u: 0/20
+   axis spawns: nearest waypoint median 104, worst 211, >200u: 1/20
+   flags: CROUCH=38, SPRINT=29, UNREACHABLE=28, SNIPER=16, SENTRY/MACHINEGUN=13, DEFEND=13, DOUBLEJUMP/PRONE=12, NORED/NOALLIES=9, CAPPOINT/GOAL=5, NOBLU/NOAXIS=3, JUMP=1
+
+== dod_argentan  (218 used waypoints, 5 objectives)
+   spawn centres: allies (-2700, -1527, 67)  axis (2494, 1611, 298)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   point_middle     16,0,328                       22     1     0     0    0    3    0    0
+   point_allied_1   -2080,480,112                  20     1     0     1    1    0    1    0
+   point_axis_1     2176,-256,216                  22     1     0     0    1    3    0    2
+   point_allied_2   -896,1056,120                  12     1     0     1    0    2    1    0
+   point_axis_2     896,-1024,96                   15     1     0     1    0    1    0    1
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 21, 'axis_half': 16, 'mid': 0} of 37
+   allies spawns: nearest waypoint median 65, worst 142, >200u: 0/20
+   axis spawns: nearest waypoint median 81, worst 240, >200u: 2/20
+   flags: CROUCH=23, SPRINT=12, SNIPER=12, UNREACHABLE=9, SENTRY/MACHINEGUN=6, NOBLU/NOAXIS=5, CAPPOINT/GOAL=5, DOUBLEJUMP/PRONE=5, NORED/NOALLIES=4, JUMP=1
+
+== dod_avalanche  (333 used waypoints, 5 objectives)
+   spawn centres: allies (757, -1521, -409)  axis (96, 2300, 221)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   flag5            -288,1424,136                  55     1     0     0    2    2    0    4
+   flag3            137,399,-23                    61     1     0     1    0    4    0    1
+   flag1            864,-688,-320                  72     1     0     0    1    3    2    0
+   flag4            1208,904,145                   13     1     0     1    3    4    1    0
+   flag2            -160,-880,-232                 19     1     0     3    3    3    1    0
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 54, 'axis_half': 21, 'mid': 0} of 75
+   allies spawns: nearest waypoint median 92, worst 227, >200u: 2/20
+   axis spawns: nearest waypoint median 56, worst 105, >200u: 0/20
+   flags: CROUCH=38, SPRINT=16, SENTRY/MACHINEGUN=15, NOBLU/NOAXIS=13, SNIPER=13, DOUBLEJUMP/PRONE=10, NORED/NOALLIES=8, CAPPOINT/GOAL=5, JUMP=5, UNREACHABLE=4
+
+== dod_colmar  (396 used waypoints, 14 objectives)
+   spawn centres: allies (50, -2269, 13)  axis (148, 3077, 18)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   bomb_axis2_2     1049,1026,27                   22     1     3     1    0    0    0    0
+   bomb_axis2_1     1037,1019,27                   21     1     3     1    0    0    0    0
+   cap_axis_2       1001,1057,54                   79     1     4     1    0    0    0    0
+   cap_axis_4       109,1959,21                    87     0     0     0    0    0    0    0
+   cap_allied_2     -926,-529,138                  99     1     0     0    0    0    0    0
+   bomb_allied2_2   -961,-484,99                   63     1     0     0    0    0    0    0
+   bomb_allied2_1   -949,-478,99                   63     1     0     0    0    0    0    0
+   cap_axis_3       -1145,2024,145                 79     1     3     0    0    0    0    0
+   bomb_axis3_2     -1138,1991,144                 47     1     3     0    0    0    0    0
+   bomb_axis3_1     -1137,1990,144                 46     1     3     0    0    0    0    0
+   bomb_allied1_2   1128,-1383,147                 44     1     2     0    1    1    0    0
+   bomb_allied1_1   1127,-1382,147                 42     1     2     0    1    1    0    0
+   cap_allied_1     1116,-1414,188                 90     1     3     0    1    1    0    0
+   cap_allied_3     946,-1412,136                  89     1     2     0    1    0    0    0
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 22, 'axis_half': 15, 'mid': 0} of 37
+   allies spawns: nearest waypoint median 67, worst 113, >200u: 0/20
+   axis spawns: nearest waypoint median 76, worst 131, >200u: 0/20
+   flags: DEFEND=18, SENTRY/MACHINEGUN=11, UNREACHABLE=11, NOBLU/NOAXIS=10, SPRINT=8, NORED/NOALLIES=8, SNIPER=5, CAPPOINT/GOAL=4, RESUPPLY/BOMBS_HERE=2, DOUBLEJUMP/PRONE=2, JUMP=1, CROUCH=1
+
+== dod_donner  (366 used waypoints, 5 objectives)
+   spawn centres: allies (-3172, -2748, -113)  axis (2754, -494, -92)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   cp5              1760,-240,-120                 27     1     0     0    1    0    0    1
+   cp4              1376,-1064,-112                25     1     1     0    1    0    0    2
+   cp2              -2096,-1032,-132               23     1     0     0    0    0    0    0
+   cp1              -2621,-1879,-128               16     1     0     1    2    3    3    0
+   cp3              -554,-101,-12                  26     1     6     3    4   10    3    5
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 42, 'axis_half': 15, 'mid': 0} of 57
+   allies spawns: nearest waypoint median 122, worst 212, >200u: 1/20
+   axis spawns: nearest waypoint median 110, worst 273, >200u: 2/20
+   flags: UNREACHABLE=30, CROUCH=27, NOBLU/NOAXIS=20, SNIPER=20, ROUTE=19, SENTRY/MACHINEGUN=19, NORED/NOALLIES=18, DEFEND=16, SPRINT=10, CAPPOINT/GOAL=5, JUMP=5, NO_FLAG/COVER_RELOAD=4, DOUBLEJUMP/PRONE=3, BREAKABLE=2
+
+== dod_flash  (302 used waypoints, 5 objectives)
+   spawn centres: allies (-2304, -1154, -8)  axis (2255, 282, 55)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   flag_center      -384,-496,16                   23     1     3     2    3    6    2    2
+   flags_allied1    -1776,-352,16                  20     1     0     0    2    3    4    0
+   flag_axisfield   152,-2302,16                   53     1     3     0    0    0    1    1
+   flag_axis1       1170,-633,16                   17     1     0     0    0    1    0    1
+   flags_alliedfield -528,1104,16                   23     1     3     2    2    1    2    2
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 55, 'axis_half': 4, 'mid': 0} of 59
+   allies spawns: nearest waypoint median 90, worst 134, >200u: 0/20
+   axis spawns: nearest waypoint median 95, worst 180, >200u: 0/20
+   flags: CROUCH=26, SENTRY/MACHINEGUN=20, NOBLU/NOAXIS=18, UNREACHABLE=18, SPRINT=16, NORED/NOALLIES=16, DEFEND=13, SNIPER=12, DOUBLEJUMP/PRONE=12, CAPPOINT/GOAL=5, JUMP=2
+
+== dod_jagd  (310 used waypoints, 10 objectives)
+   spawn centres: allies (-2585, -732, -346)  axis (3606, 384, -345)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   cap_allied_1     -522,-1109,-285                43     1     3     0    0    2    3    0
+   bomb_allied1_2   -521,-1114,-315                19     1     3     0    0    2    3    0
+   bomb_allied1_1   -521,-1114,-315                19     1     3     0    0    2    3    0
+   cap_allied_2     162,-172,-207                  53     1     4     2    3    2    7    3
+   bomb_allied2_2   163,-179,-248                  17     1     4     2    3    2    7    3
+   bomb_allied2_1   163,-179,-248                  17     1     4     2    3    2    7    3
+   cap_axis_fake    400,-224,-247                  56     1     2     1    2    2    3    3
+   cap_allied_3     -351,789,-281                  51     1     3     0    0    1    3    0
+   bomb_allied3_1   -351,779,-304                  26     1     3     0    0    1    3    0
+   bomb_allied3_2   -351,779,-304                  26     1     3     0    0    1    3    0
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 24, 'axis_half': 1, 'mid': 0} of 25
+   allies spawns: nearest waypoint median 89, worst 130, >200u: 0/20
+   axis spawns: nearest waypoint median 91, worst 151, >200u: 0/20
+   flags: NOBLU/NOAXIS=17, UNREACHABLE=13, DEFEND=12, SPRINT=7, CROUCH=7, NORED/NOALLIES=5, SENTRY/MACHINEGUN=5, SNIPER=4, DOUBLEJUMP/PRONE=3, CAPPOINT/GOAL=3, JUMP=2, OPENS_LATER=2, RESUPPLY/BOMBS_HERE=1
+
+== dod_kalt  (300 used waypoints, 5 objectives)
+   spawn centres: allies (1055, 5132, 61)  axis (5292, 4683, 76)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   flag_axis_01     5068,3988,188                 190     1     0     2    0    1    2    1
+   flag_axis_02     4474,2558,6                    20     1     0     0    2    2    0    2
+   flag_bridge      3066,4026,50                   22     1     0     0    1    3    1    0
+   flag_allied_02   1610,2562,5                    22     1     0     0    2    1    2    0
+   flag_allied_01   988,3975,190                  171     1     0     2    1    3    0    2
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 17, 'axis_half': 15, 'mid': 0} of 32
+   allies spawns: nearest waypoint median 75, worst 134, >200u: 0/20
+   axis spawns: nearest waypoint median 88, worst 144, >200u: 0/20
+   flags: UNREACHABLE=15, SENTRY/MACHINEGUN=14, NORED/NOALLIES=13, CROUCH=11, NOBLU/NOAXIS=11, SNIPER=10, LADDER=10, SPRINT=8, CAPPOINT/GOAL=5, JUMP=2, DOUBLEJUMP/PRONE=1
+
+== dod_palermo  (232 used waypoints, 5 objectives)
+   spawn centres: allies (949, -1218, -380)  axis (2540, 2570, -379)
+   objective        origin                       near   cap   def   snp   mg  crh noAx noAl
+   axis2nd          1120,3392,-230                 23     1     0     0    0    0    0    0
+   allied1st        2409,-669,-312                 10     1     0     0    0    0    0    0
+   allied2nd        578,624,-318                    9     1     0     0    0    1    0    0
+   axis1st          2820,1028,-262                 12     1     0     0    0    0    0    0
+   middleflag       1616,916,-225                  57     5     0     2    0    0    0    0
+   tactical pts (defend/sniper/mg/prone/crouch) by territory: {'allies_half': 5, 'axis_half': 4, 'mid': 0} of 9
+   allies spawns: nearest waypoint median 90, worst 207, >200u: 1/16
+   axis spawns: nearest waypoint median 108, worst 189, >200u: 0/16
+   flags: CAPPOINT/GOAL=9, SPRINT=7, SNIPER=7, SENTRY/MACHINEGUN=3, CROUCH=2
+

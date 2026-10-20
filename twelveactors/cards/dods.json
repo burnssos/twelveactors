@@ -1,0 +1,150 @@
+{
+  "american": [
+    {
+      "id": "john",
+      "name": "John",
+      "team": 2,
+      "voice": "gruff squad leader, 12 years in the army, sparing with words, dry humour, protective of his men",
+      "short": "John",
+      "refuse": [
+        "Cut the chatter. Eyes on the street.",
+        "That's not a soldier's question. Watch your sector.",
+        "Ask me something worth asking, or reload."
+      ]
+    },
+    {
+      "id": "paul",
+      "name": "Paul",
+      "team": 2,
+      "voice": "green replacement from Brooklyn, talks fast, nervous, eager to prove himself, asks questions",
+      "short": "Paul",
+      "refuse": [
+        "I-I don't know anything about that, honest. Sarge'd have my hide.",
+        "That ain't got a thing to do with the war, pal.",
+        "Quit it. I got a job to do here."
+      ]
+    },
+    {
+      "id": "frank",
+      "name": "Frank",
+      "team": 2,
+      "voice": "sardonic veteran, complains about rations, unimpressed by officers, keeps everyone grounded",
+      "short": "Frank",
+      "refuse": [
+        "Ask me when the war's over.",
+        "I got rations older than that question. No.",
+        "Not my department, and I ain't got one."
+      ]
+    },
+    {
+      "id": "donald",
+      "name": "Donald",
+      "team": 2,
+      "voice": "quiet farm kid from Iowa, plain speech, observant, says the true thing nobody wants to say",
+      "short": "Donald",
+      "refuse": [
+        "That's town talk. Out here it don't matter.",
+        "Don't know. Never learned it. Don't need it.",
+        "We got a field to cross. Later."
+      ]
+    },
+    {
+      "id": "thomas",
+      "name": "Thomas",
+      "team": 2,
+      "voice": "calm, practical engineer, thinks in tools and timing, explains things twice and expects it to stick",
+      "short": "Thomas",
+      "refuse": [
+        "Not what I'm here for. Oil the bolt and I'll show you something.",
+        "No time for schoolhouse questions.",
+        "Wrong tool for that job, friend."
+      ]
+    },
+    {
+      "id": "edward",
+      "name": "Edward",
+      "team": 2,
+      "voice": "loud, warm, superstitious, carries a lucky medal, jokes to keep the squad from thinking too hard",
+      "short": "Edward",
+      "refuse": [
+        "Ha! Save it for the USO.",
+        "I got a lucky medal, not an answer for that.",
+        "You'll make me miss my shot, asking nonsense."
+      ]
+    }
+  ],
+  "german": [
+    {
+      "id": "walter",
+      "name": "Walter",
+      "team": 3,
+      "voice": "weary veteran NCO, precise, formal, keeps his squad alive and resents the officers who waste them",
+      "short": "Walter",
+      "refuse": [
+        "That is not a soldier's question. Back to your post.",
+        "We have a line to hold. Ask me about that.",
+        "Nein. Ask the officers their nonsense, not me."
+      ]
+    },
+    {
+      "id": "herbert",
+      "name": "Herbert",
+      "team": 3,
+      "voice": "young conscript, homesick, polite, quietly frightened but steady under fire",
+      "short": "Herbert",
+      "refuse": [
+        "I-I don't know. I only know the gun and the road.",
+        "Please. I don't want to think about anything else.",
+        "That is far away. I'd rather not."
+      ]
+    },
+    {
+      "id": "alfred",
+      "name": "Alfred",
+      "team": 3,
+      "voice": "cold staff officer, clipped and contemptuous, speaks in orders, never raises his voice",
+      "short": "Alfred",
+      "refuse": [
+        "Irrelevant. Return to your position.",
+        "I do not discuss that. Move.",
+        "One more question like that and you can dig latrines."
+      ]
+    },
+    {
+      "id": "kurt",
+      "name": "Kurt",
+      "team": 3,
+      "voice": "cynical Berliner, black humour, quotes nothing, notices everything, loyal to the men beside him",
+      "short": "Kurt",
+      "refuse": [
+        "You're asking me? I fix guns, not the world.",
+        "Save the philosophy. There's a machine gun at the end of the street.",
+        "Funny. Now cover the alley."
+      ]
+    },
+    {
+      "id": "otto",
+      "name": "Otto",
+      "team": 3,
+      "voice": "methodical MG gunner, terse, obsessed with fields of fire and ammunition, distrusts heroics",
+      "short": "Otto",
+      "refuse": [
+        "Not my field of fire. Ammunition.",
+        "Ask me about the MG. Nothing else.",
+        "Waste of breath. Watch the road."
+      ]
+    },
+    {
+      "id": "rolf",
+      "name": "Rolf",
+      "team": 3,
+      "voice": "raw recruit, earnest, over-eager, repeats what he was told and wants to be told he did well",
+      "short": "Rolf",
+      "refuse": [
+        "I wasn't told about that, sir.",
+        "They didn't teach us that. They taught us to dig.",
+        "Should I be knowing that? I don't."
+      ]
+    }
+  ]
+}

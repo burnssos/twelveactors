@@ -1,0 +1,32 @@
+# voices.tsv — per-persona clip pitch and gain for Twelve Actors barks.
+#
+# Installed to data/twelveactors/voices.tsv. Optional: without this file each bot
+# gets a pitch derived from a hash of its name (92..112), which is stable but
+# arbitrary. This file is the curated version.
+#
+# Columns, tab separated:
+#   <persona name>   pitch   gain
+#
+#   pitch  1..255, 100 = untouched. DoD:S has one male US voice and one male
+#          German voice, so pitch is the only per-bot distinction available
+#          without new audio assets. 92..112 is roughly two semitones either
+#          way: audibly different, still a soldier.
+#   gain   0.0..1.0, multiplies the bark before distance falloff. Optional,
+#          defaults to 1.0. Use it to make one man quieter without moving him.
+#
+# Reload without restarting the server:  sm_ta_reload
+#
+# Names must match roster.tsv and the in-game bot names exactly (case
+# insensitive). Anything not listed falls back to the name hash.
+John	97	1.0
+Paul	103	1.0
+Frank	108	1.0
+Donald	94	1.0
+Thomas	111	1.0
+Edward	100	1.0
+Walter	96	1.0
+Herbert	102	1.0
+Alfred	107	1.0
+Kurt	93	1.0
+Otto	110	1.0
+Rolf	99	1.0

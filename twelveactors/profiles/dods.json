@@ -1,0 +1,175 @@
+{
+  "engine": "dods",
+  "display": "Day of Defeat: Source",
+  "chat_prefix": "",
+  "teams": {
+    "2": {
+      "faction": "american",
+      "voice_root": "sound/player/american",
+      "lang": "en",
+      "label": "Allies"
+    },
+    "3": {
+      "faction": "german",
+      "voice_root": "sound/player/german",
+      "lang": "de",
+      "label": "Axis"
+    }
+  },
+  "events": {
+    "player_death": "kill",
+    "dod_round_start": "round_start",
+    "dod_round_win": "round_end",
+    "dod_flag_capture": "flag_capture",
+    "dod_point_captured": "point_capture",
+    "dod_bomb_planted": "plant",
+    "dod_bomb_defused": "defuse"
+  },
+  "clip_roots": [
+    "sound/player/american",
+    "sound/player/german"
+  ],
+  "speech_prefix": [
+    "us_",
+    "ger_"
+  ],
+  "acts": {
+    "ack": [
+      "yessir"
+    ],
+    "go": [
+      "gogogo"
+    ],
+    "attack": [
+      "attack",
+      "attacktimed",
+      "moveout",
+      "movewithtank",
+      "tankahead",
+      "mgahead",
+      "moveupmg"
+    ],
+    "defend": [
+      "defense",
+      "holdposition",
+      "takecover",
+      "pointsecure",
+      "objectivesecure",
+      "areasecure",
+      "areaclear"
+    ],
+    "retreat": [
+      "fallback",
+      "changeposition",
+      "spreadout",
+      "ceasefire"
+    ],
+    "support": [
+      "backup",
+      "coveringfire",
+      "coverflanks"
+    ],
+    "grenade": [
+      "grenadein",
+      "grenadeout",
+      "usegrenades",
+      "smoke"
+    ],
+    "ammo": [
+      "needammo",
+      "takeammo",
+      "dropweapons"
+    ],
+    "thanks": [
+      "thanks"
+    ],
+    "praise": [
+      "niceshot",
+      "wegothim"
+    ],
+    "negative": [
+      "negative"
+    ],
+    "medic": [
+      "medic"
+    ],
+    "direction": [
+      "left",
+      "right",
+      "enemybehind",
+      "enemyahead",
+      "incomingfireleft",
+      "incomingfireright",
+      "flankleft",
+      "flankright",
+      "sniper"
+    ],
+    "objective": [
+      "flags",
+      "beach",
+      "prepare",
+      "sticktogether"
+    ],
+    "weapon": [
+      "bazooka",
+      "usebazooka",
+      "panzerschreck",
+      "usepanzerschreck",
+      "piat",
+      "c4defused",
+      "c4enemyplanted",
+      "c4teamplanted"
+    ],
+    "time": [
+      "oneminute",
+      "twominute"
+    ],
+    "pain": [
+      "minorpain",
+      "majorpain",
+      "megapain",
+      "headshot"
+    ],
+    "celebrate": [
+      "wegothim",
+      "niceshot"
+    ]
+  },
+  "event_acts": {
+    "kill": "praise",
+    "round_start": "objective",
+    "round_end": "celebrate",
+    "flag_capture": "celebrate",
+    "point_capture": "objective",
+    "plant": "objective",
+    "defuse": "objective"
+  },
+  "max_reply_words": 18,
+  "reply_cooldown_s": 1.4,
+  "bot_cooldown_s": 9.0,
+  "unprompted_chance": 0.28,
+  "precache_budget": 234,
+  "game_dir": "dod",
+  "speech_prefix_by_faction": {
+    "american": "us_",
+    "german": "ger_"
+  },
+  "death_acts": [
+    "praise",
+    "negative",
+    "pain"
+  ],
+  "round_acts": [
+    "objective",
+    "attack",
+    "go",
+    "defend"
+  ],
+  "max_tokens": 600,
+  "scope": {
+    "enabled": true,
+    "max_words": 30,
+    "repeat_window_s": 45,
+    "extra_allow": []
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "engine": "dods",
+  "model": "deepseek-v4-flash-0731",
+  "base_url": "<YOUR_API_BASE>",
+  "api_key": "<YOUR_API_KEY>",
+  "port": 8377,
+  "timeout": 20,
+  "dialog_requires_human": true,
+  "_note_model": "deepseek-v4-flash-0731 is RECOMMENDED (cheap, JSON mode). Any OpenAI-compatible model that returns a JSON object and honours max_tokens works; put its id here. Switch later with install-model-switch.sh <id>.",
+  "_note_base_url": "Your host's OpenAI-compatible base, with the /v1 suffix if the host uses one. Venice example: https://api.venice.ai/api/v1",
+  "_note_api_key": "Supplied by you at install time (TWELVEACTORS_API_KEY=...), or edit this file after install. Never commit the real key."
+}

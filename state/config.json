@@ -1,0 +1,8 @@
+{
+  "engine": "dods",
+  "model": "deepseek-v4-flash-0731",
+  "base_url": "https://api.venice.ai/api/v1",
+  "api_key": "<YOUR_API_KEY>",
+  "port": 8377,
+  "timeout": 20
+}
