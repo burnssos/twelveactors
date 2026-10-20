@@ -3,7 +3,7 @@
 A conversation layer for Source-engine bots. Twelve Actors binds each bot slot
 to a persona with a voice, lets an LLM write short in-character lines, and then
 plays the line back using **the voice clips the game already ships** — no TTS,
-no audio generation, no voice cloning.
+no audio generation, no voice cloning. (No GPU needed to text chat with ai-bots).
 
 Built against Day of Defeat: Source with RCBot2, but the design is
 engine-shaped, not mod-shaped: HL2:DM, CS:S and TF2 expose the same hooks.
