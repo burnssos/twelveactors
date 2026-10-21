@@ -5,7 +5,7 @@ to a persona with a voice, lets an LLM write short in-character lines, and then
 plays the line back using **the voice clips the game already ships** — no TTS,
 no audio generation, no voice cloning. (Chat with bots in-game using affordable OpenAI-compatible models for inference).
 
-TwelveActors was designed to work with any original Source engine game, not only mod-shaped: HL2:DM, CS:S and TF2 expose the same hooks, but it was originally created with passion to work with Day of Defeat: Source with RCBot2.
+TwelveActors was designed to work with any original Source engine game, not only mod-shaped for the original DoD:S idea: HL2:DM, CS:S and TF2 expose the same hooks, but it was originally created with passion to work with Day of Defeat: Source with RCBot2.
 
 ```
  player chat  ──┐
