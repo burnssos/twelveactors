@@ -33,14 +33,15 @@
 #define TA_TEAM_ALLIES  2
 #define TA_TEAM_AXIS    3
 
-// Positional class argument for `rcbotd addbot <class> <team> <name>`. The team
-// and name are what this module needs; the class is filler that RCBot2 resolves
-// itself, and ta_botjoin spawns the bot properly on player_spawn regardless.
-// Verified live with both 0 and 1: identical outcome. Candidate for a convar.
-#define TA_ADDBOT_CLASS 0
 
 ConVar g_cvTarget;
 ConVar g_cvEnabled;
+ConVar g_cvClass;        // addbot class argument
+ConVar g_cvInterval;     // supervisor pass cadence, seconds
+ConVar g_cvReassert;     // passes between unchanged quota rewrites
+ConVar g_cvOrdered;      // ask RCBot2 for ordered profile selection
+Handle g_hTimer;         // supervisor timer; rebuilt when the interval changes
+float g_fTimerPeriod;    // period it was built with
 bool g_bRcbot2;
 int g_iAppliedTarget = -1;
 int g_iPasses;
@@ -75,6 +76,27 @@ public void OnPluginStart()
         "Bots to keep on the server (both bounds of the RCBot2 quota)", FCVAR_NOTIFY,
         true, 0.0, true, 31.0);
 
+    // The numbers below were compile-time constants. They are the operator's
+    // business, not the source's, and AutoExecConfig below writes them to
+    // cfg/sourcemod/ta_bots_rcbot2.cfg on first load -- the same mechanism
+    // ta_proximity.sp:75 already uses. Note what is NOT a convar: the RCBot2
+    // command names themselves stay in the source. Hiding them behind operator
+    // templates was considered and rejected; it would have moved the strings
+    // while leaving the knowledge that matters (what max_bots means, encoded as
+    // arithmetic in ApplyTarget) compiled in regardless -- a rename dressed as
+    // a separation, plus a command-injection surface that does not exist today.
+    g_cvClass = CreateConVar("sm_ta_bots_class", "0",
+        "Class argument passed to 'rcbotd addbot <class> <team> <name>'", FCVAR_NOTIFY,
+        true, -1.0, true, 10.0);
+    g_cvInterval = CreateConVar("sm_ta_bots_interval", "10.0",
+        "Seconds between supervisor passes", FCVAR_NOTIFY, true, 1.0, true, 120.0);
+    g_cvReassert = CreateConVar("sm_ta_bots_reassert", "12",
+        "Passes between quota rewrites when nothing changed; RCBot2 logs every accepted write, so writing each pass floods the journal",
+        FCVAR_NOTIFY, true, 1.0, true, 600.0);
+    g_cvOrdered = CreateConVar("sm_ta_bots_ordered_profiles", "1",
+        "Issue 'rcbot_nonrandom_profile 1' so RCBot2 takes free profiles in order",
+        FCVAR_NOTIFY);
+
     // Presence check only. FindConVar asks VALVE'S cvar registry whether a
     // convar of that name has been registered by anyone; it is a question to
     // the engine, not a reach into RCBot2. The handle is deliberately not
@@ -99,9 +121,17 @@ public void OnPluginStart()
     HookConVarChange(g_cvTarget, OnTargetChanged);
     HookConVarChange(g_cvEnabled, OnTargetChanged);
     ApplyTarget(true);
-    CreateTimer(10.0, Timer_Supervise, _, TIMER_REPEAT);
     RegConsoleCmd("sm_ta_bots", Command_Status, "Twelve Actors bot module status");
     RegConsoleCmd("sm_ta_bots_reload", Command_ReloadVoiced, "Reload voiced.txt");
+    AutoExecConfig(true, "ta_bots_rcbot2");
+
+    // Start supervising immediately, at whatever the convar holds right now
+    // (the compiled default on a cold boot). OnConfigsExecuted rebuilds this
+    // if the config file asks for a different period. Without this, a late
+    // `sm plugins load` mid-map would supervise nothing until the next map
+    // change, because OnConfigsExecuted does not fire on plugin load.
+    g_fTimerPeriod = g_cvInterval.FloatValue;
+    g_hTimer = CreateTimer(g_fTimerPeriod, Timer_Supervise, _, TIMER_REPEAT);
     LogMessage("[twelveactors] bot module attached to RCBot2, target=%d", g_cvTarget.IntValue);
 }
 
@@ -146,7 +176,7 @@ void ApplyTarget(bool force = false)
     // that lands after plugin start cannot survive the next map's
     // OnConfigsExecuted.
     bool changed = (cap != g_iAppliedTarget);
-    if (!force && !changed && ++g_iPasses < 12) return;
+    if (!force && !changed && ++g_iPasses < g_cvReassert.IntValue) return;
     g_iPasses = 0;
 
     char cmd[128];
@@ -157,7 +187,7 @@ void ApplyTarget(bool force = false)
     ServerCommand(cmd);
     // Take free profiles in order (1,2,3...), so every added bot lands on a
     // persona slot instead of a random profile from the launcher set.
-    ServerCommand("rcbot_nonrandom_profile 1");
+    if (g_cvOrdered.BoolValue) ServerCommand("rcbot_nonrandom_profile 1");
 
     if (changed) {
         g_iAppliedTarget = cap;
@@ -172,6 +202,18 @@ public void OnConfigsExecuted()
     // carries its own min_bots/max_bots: re-assert once every map, after every
     // config exec, not just when our own number changes.
     ApplyTarget(true);
+
+    // Rebuild the supervisor timer if the period changed. OnPluginStart creates
+    // one so a late `sm plugins load` supervises immediately, but AutoExecConfig
+    // only QUEUES an `exec`, so at that point every convar still holds its
+    // compiled-in default -- sm_ta_bots_interval would silently do nothing
+    // without this. Cheap: the guard below makes it a no-op when unchanged.
+    float want = g_cvInterval.FloatValue;
+    if (g_hTimer != null && want == g_fTimerPeriod) return;
+    if (g_hTimer != null) KillTimer(g_hTimer);
+    g_fTimerPeriod = want;
+    g_hTimer = CreateTimer(want, Timer_Supervise, _, TIMER_REPEAT);
+    LogMessage("[twelveactors] supervisor pass every %.1fs", want);
 }
 
 public Action Timer_Supervise(Handle timer)
@@ -259,7 +301,7 @@ public Action Timer_Supervise(Handle timer)
         char persona[MAX_NAME_LENGTH];
         if (want != TA_TEAM_ANY && FindFreeVoiced(persona, sizeof(persona), want)) {
             char add[128];
-            Format(add, sizeof(add), "rcbotd addbot %d %d %s", TA_ADDBOT_CLASS, want, persona);
+            Format(add, sizeof(add), "rcbotd addbot %d %d %s", g_cvClass.IntValue, want, persona);
             ServerCommand(add);
             LogMessage("[twelveactors] adding %s to team %d (%d/%d voiced)", persona, want, voiced, target);
         } else {
@@ -445,10 +487,10 @@ public Action Command_ReloadVoiced(int client, int args)
 
 public Action Command_Status(int client, int args)
 {
-    ReplyToCommand(client, "[twelveactors] module=%s rcbot2=%d enabled=%d target=%d applied=%d bots=%d cast=%d typed=%d",
+    ReplyToCommand(client, "[twelveactors] module=%s rcbot2=%d enabled=%d target=%d applied=%d bots=%d cast=%d typed=%d every=%.1fs",
         "rcbot2", g_bRcbot2 ? 1 : 0, g_cvEnabled.IntValue, g_cvTarget.IntValue,
         g_iAppliedTarget, Native_Count(INVALID_HANDLE, 0),
-        g_hOrder == null ? 0 : g_hOrder.Length, g_iTyped);
+        g_hOrder == null ? 0 : g_hOrder.Length, g_iTyped, g_fTimerPeriod);
     return Plugin_Handled;
 }
 
