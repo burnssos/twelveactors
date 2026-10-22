@@ -55,7 +55,11 @@ if [ "$COMPILE" -eq 1 ] || [ ! -f "$SMX" ]; then
     install -o "$OWNER" -g "$OWNER" -m 644 "$TMPD/dods_spawnwatch.smx" "$SMX"
     rm -rf "$TMPD"
 else
-    echo "[1/5] using prebuilt $SMX"
+    # Only reachable if someone has a local .smx lying about: no compiled
+    # output is committed any more. A tracked build/ta_bots_rcbot2.smx once
+    # shipped a plugin whose source had already been corrected (21 Oct 2026),
+    # so a stale binary beside fresh source is exactly the hazard to avoid.
+    echo "[1/5] using existing $SMX (local build; delete it to force a recompile)"
 fi
 
 echo "[2/5] installing plugin into $PLUGDIR"

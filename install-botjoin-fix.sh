@@ -59,8 +59,11 @@ echo -n "  join suicides in the last 40s : "
 journalctl -u dods --since "-40s" --no-pager | grep -c 'committed suicide with "world"' || true
 echo -n "  bot module lines              : "
 journalctl -u dods --since "-40s" --no-pager | grep -E "\[twelveactors\] (renamed|RcBot2 quota|bot module)" | tail -3 || true
-echo -n "  plugin loaded                 : "
-journalctl -u dods --since "-40s" --no-pager | grep -c "Twelve Actors Bot Join Fix" || true
+# Grep for the bot module's own attach line, not ta_botjoin's banner: step 3
+# reloads ta_bots_rcbot2 only, so ta_botjoin's banner does not reprint and the
+# old check reported 0 on a perfectly good install.
+echo -n "  bot module reloaded           : "
+journalctl -u dods --since "-40s" --no-pager | grep -c "bot module attached to RCBot2" || true
 echo
 echo "done. To check later:"
 echo "  journalctl -u dods --since '-10min' | grep 'committed suicide with \"world\"'   # expect nothing"

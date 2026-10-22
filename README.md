@@ -520,8 +520,53 @@ not touch stay yours, and you may combine the result with closed code in a
 larger work, which is what makes it workable for plugins hosted inside a
 proprietary engine. Running a modified copy as a network service without ever
 distributing it triggers no obligation — MPL has no network clause; if that
-matters to you, AGPL-3.0 is the licence that covers it, and MPL §3.3 permits
-relicensing this code into it.
+matters to you, AGPL-3.0 is the licence that covers that case.
 
-Voice clips, maps and models stay under Valve's terms; nothing from the game is
-redistributed here, the daemon reads the installed VPK at runtime.
+### §3.3, and the SourceMod plugins
+
+An earlier version of this section said MPL §3.3 "permits relicensing this code
+into" AGPL-3.0. That is not what the clause does, and the error mattered because
+§3.3 is the answer to a question this project actually has.
+
+§3.3 does not relicense MPL files. It permits a **Larger Work** that combines
+MPL-covered files with GPL-family code to be distributed under that Secondary
+License (GPL-2.0+, LGPL-2.1+ or AGPL-3.0), provided the MPL files carry no
+"Incompatible With Secondary Licenses" notice. The MPL files remain MPL; what
+the clause governs is the terms of the combination.
+
+Which is exactly the situation of the server plugins. **SourceMod is
+GPL-3.0**, and `plugin/*.sp` each `#include <sourcemod>` and mostly
+`#include <sdktools>` at compile time — so the compiled `.smx` is a combination,
+not merely a file loaded by a host, and AlliedModders publish the position that
+plugins are derivative works which must be GPL-compatible
+(<https://sm.alliedmods.net/license.php>).
+
+MPL-2.0 was designed to be compatible here; it just has to be said out loud. So:
+
+> **Every SourceMod plugin in `plugin/` is offered under MPL-2.0 OR
+> GPL-3.0-or-later, at your option** — `twelveactors.sp`, `ta_bots_rcbot2.sp`,
+> `ta_botjoin.sp`, `ta_botjoin_experimental.sp`, `ta_cmdspy.sp`,
+> `ta_humancap.sp` and `ta_proximity.sp`. Each carries that SPDX identifier and
+> none carries the "Incompatible With Secondary Licenses" notice, so §3.3
+> applies and a GPL-3.0 distribution of the compiled plugin is permitted.
+
+The client-side parts never touch SourceMod, so this does not reach them. That
+containment is the point of keeping the parts separate in the first place.
+
+### What sits beside this, and under what terms
+
+| | Licence | Relationship |
+|---|---|---|
+| **SourceMod** | GPL-3.0 | Compiles the plugins and loads them; see §3.3 above |
+| **RCBot2** | **AGPL-3.0** | Supplies the bots. Separately installed by the operator, from its own repository. Nothing of its code is copied, included, linked or called; no file of its is written. See **Credits** above |
+| **RCBot2 waypoints** | **no stated terms** | Not in RCBot2's repository and not covered by its AGPL grant. Download them yourself; none are redistributed here |
+| Voice clips, maps, models | Valve's terms | Nothing from the game is redistributed; the daemon reads the installed VPK at runtime |
+
+**AGPL-3.0 §13 and this server.** RCBot2's network clause is triggered by running
+a *modified* RCBot2 where users interact with it over a network — which a game
+server plainly is. Running RCBot2 **unmodified** alongside Twelve Actors triggers
+nothing, and nothing in this repository modifies it: every interaction is a
+command string handed to Valve's console or a query to Valve's cvar registry. If
+you do patch RCBot2, that obligation is yours and it does not reach these files.
+
+*Not legal advice.*

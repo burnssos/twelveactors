@@ -1,5 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Twelve Actors contributors
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MPL-2.0 OR GPL-3.0-or-later
+//
+// Dual-offered because this plugin is compiled against SourceMod (GPL-3.0) via
+// #include <sourcemod>, so the compiled .smx is a combination rather than a
+// merely-loaded file. MPL-2.0 §3.3 permits distributing such a Larger Work
+// under a Secondary License; this file carries no "Incompatible With Secondary
+// Licenses" notice, so that route is open. The file itself remains MPL-2.0 for
+// anyone who wants it on those terms.
 /**
  * ta_botjoin.sp — stop the RCBot2 "join suicide" that clients render as
  * "ERRORNAME committed suicide" in the kill feed.
