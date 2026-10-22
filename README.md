@@ -485,9 +485,24 @@ own terms.
 
 **The waypoints**, without which the bots cannot navigate a map at all, are
 hand-made and are *not* part of RCBot2's repository — RCBot2's own README
-directs you to [rcbot.bots-united.com/waypoints.php](http://rcbot.bots-united.com/waypoints.php).
-The nine DoD:S sets this project was developed against name **Cheeseh**,
-**[APG]RoboCop[CL]**, **genmac** and **LQ777** in their own file headers.
+directs you to `rcbot.bots-united.com/waypoints.php`. The nine DoD:S sets this
+project was developed against name **Cheeseh**, **[APG]RoboCop[CL]**,
+**genmac** and **LQ777** in their own file headers.
+
+> **That distribution site is offline** (checked 21 October 2026). The only
+> copies now reachable are Wayback Machine snapshots, e.g.
+> [this one from November 2024](https://web.archive.org/web/20241104011324/rcbot.bots-united.com/waypoints.php).
+> Across every snapshot going back years — the address predates Day of Defeat:
+> Source itself, so the earliest ones are for the original Half-Life mod —
+> **no licence or terms of use are stated anywhere on the page.**
+>
+> That is why no waypoints are shipped here. Files whose authors are named in
+> their own headers, offered under no stated terms, are not ours to modify and
+> redistribute — and the official source going offline raises the obligation to
+> credit those authors rather than lowering it, because for some installers a
+> third-party copy would be the only one left. If you need waypoints, take them
+> from the archive link above and treat them as the work of the four people
+> named, not as part of this project.
 
 > **Removed 21 October 2026.** Earlier versions of this repository shipped 26
 > modified `.rcw` waypoint files in `waypoints-final/`, `waypoints-improved/` and
