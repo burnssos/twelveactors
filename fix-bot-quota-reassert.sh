@@ -29,7 +29,8 @@ TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
 PLUGDIR=/srv/dods/dod/addons/sourcemod/plugins
 RCDIR=/srv/dods/dod/addons/rcbot2/config
 FIFO=/run/dods/console
-SRC=$(ta_compile ta_bots_rcbot2) || exit 1
+ta_compile ta_bots_rcbot2 || exit 1
+SRC=$TA_SMX
 TS=$(date +%Y%m%d-%H%M%S)
 
 [ -f "$SRC" ] || { echo "missing $SRC"; exit 1; }

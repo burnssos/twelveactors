@@ -24,7 +24,8 @@ set -e
 
 TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
 
-SMX_SRC=$(ta_compile ta_bots_rcbot2) || exit 1
+ta_compile ta_bots_rcbot2 || exit 1
+SMX_SRC=$TA_SMX
 SMX_DST=/srv/dods/dod/addons/sourcemod/plugins/ta_bots_rcbot2.smx
 CFG=/srv/dods/dod/addons/rcbot2/config/config.ini
 TS=$(date +%Y%m%d-%H%M%S)

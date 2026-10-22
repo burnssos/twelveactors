@@ -22,8 +22,10 @@ TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
 PLUGDIR=/srv/dods/dod/addons/sourcemod/plugins
 FIFO=/run/dods/console
 TS=$(date +%Y%m%d-%H%M%S)
-JOIN=$(ta_compile ta_botjoin) || exit 1
-BOTS=$(ta_compile ta_bots_rcbot2) || exit 1
+ta_compile ta_botjoin || exit 1
+JOIN=$TA_SMX
+ta_compile ta_bots_rcbot2 || exit 1
+BOTS=$TA_SMX
 
 for f in "$JOIN" "$BOTS"; do
     [ -f "$f" ] || { echo "missing $f"; exit 1; }

@@ -20,8 +20,10 @@ PLUGDIR=/srv/dods/dod/addons/sourcemod/plugins
 CFG=/srv/dods/dod/addons/rcbot2/config/config.ini
 FIFO=/run/dods/console
 TS=$(date +%Y%m%d-%H%M%S)
-BOTS=$(ta_compile ta_bots_rcbot2) || exit 1
-CAP=$(ta_compile ta_humancap) || exit 1
+ta_compile ta_bots_rcbot2 || exit 1
+BOTS=$TA_SMX
+ta_compile ta_humancap || exit 1
+CAP=$TA_SMX
 
 for f in "$BOTS" "$CAP"; do
     [ -f "$f" ] || { echo "missing $f"; exit 1; }

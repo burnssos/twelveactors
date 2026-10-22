@@ -4,8 +4,15 @@
 # Shared compile helper. POSIX sh; source it, do not execute it.
 #
 #   TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
-#   SMX=$(ta_compile ta_bots_rcbot2) || exit 1
-#   install -o dod -g dod -m 644 "$SMX" "$PLUGDIR/ta_bots_rcbot2.smx"
+#   ta_compile ta_bots_rcbot2 || exit 1
+#   install -o dod -g dod -m 644 "$TA_SMX" "$PLUGDIR/ta_bots_rcbot2.smx"
+#
+# The result comes back in $TA_SMX rather than on stdout, and that is load
+# bearing. `SMX=$(ta_compile x)` runs the function in a COMMAND SUBSTITUTION
+# SUBSHELL; the subshell exits as soon as it has echoed the path, its inherited
+# EXIT trap fires, and the temp dir is deleted before the caller can install
+# from it. The caller then sees a valid-looking path to a file that no longer
+# exists. Do not "simplify" this back to echo.
 #
 # WHY THIS EXISTS: four scripts used to install a prebuilt build/*.smx. On
 # 21 Oct 2026 build/ta_bots_rcbot2.sp was found to still contain a ConVar handle
@@ -47,7 +54,7 @@ ta_compile() {
     # so the -s test below is the real check: a failed compile leaves no output.
     if ! "$ta_spcomp" -i "$SM_SCRIPTING/include" -o "$ta_out" "$ta_src" >"$ta_log" 2>&1; then
         echo "ta_compile: $ta_name FAILED to compile" >&2
-        sed -n '$p;/error/p' "$ta_log" >&2
+        grep -i "error" "$ta_log" >&2 || tail -5 "$ta_log" >&2
         return 1
     fi
     [ -s "$ta_out" ] || {
@@ -60,5 +67,5 @@ ta_compile() {
         grep -i "warning" "$ta_log" >&2
     fi
 
-    echo "$ta_out"
+    TA_SMX="$ta_out"
 }
