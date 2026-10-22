@@ -120,7 +120,9 @@ class Brain:
                                   map_name, memory)
             source = "llm"
         except Exception as exc:  # network, quota, bad JSON — degrade, never die
-            self.cfg.setdefault("_errors", []).append(str(exc)[:200])
+            errs = self.cfg.setdefault("_errors", [])
+            errs.append(str(exc)[:200])
+            del errs[:-20]  # /healthz shows the last few; never grow for the life of the process
         if not line:
             line = random.choice(FALLBACK.get(act, FALLBACK["ack"]))
             source = "fallback"

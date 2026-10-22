@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 
 import os
+import queue
 import random
 import re
 import threading
@@ -35,7 +36,25 @@ from .brain import Brain
 
 COOLDOWN_BOT = 8.0
 COOLDOWN_GLOBAL = 1.2
+# An event older than this when the worker reaches it is dropped unanswered.
+# Ages are measured from when the reader thread saw the line, which polls every
+# 0.25 s on its own thread, so a slow model call no longer hides how long an
+# event has been waiting. Override with "event_max_age_s" in config.json.
 MAX_AGE = 6.0
+# A reply (model or fallback) that is ready more than this long after the
+# event it answers is discarded instead of played: a line arriving half a
+# minute after the question reads as a bot answering someone else. Override
+# with "reply_max_age_s" in config.json; 0 disables the check.
+REPLY_MAX_AGE = 15.0
+# File growth limits. out.tsv is rewritten to its last OUT_KEEP_LINES lines
+# once it passes OUT_TRIM_BYTES; keeping a tail (not truncating to empty)
+# preserves the highest seq, which both a restarted daemon and the plugin use
+# to tell new lines from old ones. radio_seen.tsv is a human-readable log and
+# gets the same treatment with a longer tail.
+OUT_TRIM_BYTES = 256 * 1024
+OUT_KEEP_LINES = 64
+RADIO_SEEN_TRIM_BYTES = 512 * 1024
+RADIO_SEEN_KEEP_LINES = 2000
 BARK_CHANCE_DEATH = 0.28
 BARK_CHANCE_ROUND = 0.45
 BARK_CHANCE_RADIO = 0.60   # quick-key radio with no learned meaning
@@ -131,8 +150,16 @@ class Bridge:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._worker: threading.Thread | None = None
+        # (monotonic time the reader saw the line, line). The reader never
+        # blocks on the model, so this timestamp is a true arrival time.
+        self._queue: queue.Queue[tuple[float, str]] = queue.Queue()
+        # Arrival time of the event the worker is handling right now; read by
+        # _respond to discard a reply that took too long. Only the worker thread
+        # (or a direct poll_once call) touches it.
+        self._event_t: float | None = None
         self.stats = {"in": 0, "out": 0, "skipped": 0, "errors": 0, "gated": 0,
-                      "filtered": 0}
+                      "filtered": 0, "stale": 0, "late": 0, "trimmed": 0}
         self._gated = False
         self.recent: deque[dict] = deque(maxlen=40)
 
@@ -204,12 +231,36 @@ class Bridge:
         with self._lock:
             self._out_seq += 1
             seq = self._out_seq
-            line = "\t".join([str(seq), clean(speaker)[:32], clip or "", clean(text)])
+            # 380 chars keeps the whole line inside the plugin's 512-byte read
+            # buffer, so it is always read as one line. The model is asked for
+            # one short spoken sentence, so this never bites in practice.
+            line = "\t".join([str(seq), clean(speaker)[:32], clip or "", clean(text)[:380]])
             with self.out_path.open("a", encoding="utf-8") as fh:
                 fh.write(line + "\n")
             self.stats["out"] += 1
             self.recent.append({"seq": seq, "speaker": speaker, "clip": clip, "text": text})
+            self._trim(self.out_path, OUT_TRIM_BYTES, OUT_KEEP_LINES)
         return seq
+
+    def _trim(self, path: Path, max_bytes: int, keep_lines: int) -> None:
+        """Cut an append-only file back to its last `keep_lines` lines.
+
+        Written to a temporary file and swapped in with os.replace, so a reader
+        opening the path sees either the whole old file or the whole new one,
+        never a half-written one. The plugin notices the file got smaller than
+        its read position and starts again from the top, where every kept line
+        has a seq it has already played, so nothing is repeated.
+        """
+        try:
+            if path.stat().st_size <= max_bytes:
+                return
+            tail = path.read_text(encoding="utf-8", errors="replace").splitlines()[-keep_lines:]
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_text("".join(t + "\n" for t in tail), encoding="utf-8")
+            os.replace(tmp, path)
+            self.stats["trimmed"] += 1
+        except OSError:
+            self.stats["errors"] += 1
 
     # -------------------------------------------------------------- events
     def _bot_ready(self, name: str) -> bool:
@@ -233,6 +284,14 @@ class Bridge:
             player=player, text=text,
             map_name=self.cfg.get("map", "dod_anzio"), event=event, memory=memory,
         )
+        limit = float(self.cfg.get("reply_max_age_s", REPLY_MAX_AGE))
+        if limit > 0 and self._event_t is not None and time.monotonic() - self._event_t > limit:
+            # The model (or its timeout and fallback) took long enough that the
+            # moment has passed. Free the bot's cooldown so it can answer the
+            # next thing promptly instead of staying muted for a line nobody saw.
+            self.stats["late"] += 1
+            self._bot_cooldown.pop(bot["name"], None)
+            return None
         self._write_out(bot["name"], reply.clip, reply.line)
 
         # Persist only for names that are actually in the cast.
@@ -372,6 +431,7 @@ class Bridge:
                 )
         except OSError:
             self.stats["errors"] += 1
+        self._trim(self.radio_seen_path, RADIO_SEEN_TRIM_BYTES, RADIO_SEEN_KEEP_LINES)
         self._radio_pairs.add(key)
 
         bots = self.bots()
@@ -498,43 +558,95 @@ class Bridge:
                 return self._bark(bot, act)
         except Exception as exc:  # never let one bad line kill the bridge
             self.stats["errors"] += 1
-            self.cfg.setdefault("_errors", []).append(str(exc)[:200])
+            self._note_error(exc)
         return None
 
-    def poll_once(self) -> int:
+    def _note_error(self, exc: BaseException) -> None:
+        # Only the last few are ever shown (/healthz), so keep only those
+        # instead of growing a list for the life of the process.
+        errs = self.cfg.setdefault("_errors", [])
+        errs.append(str(exc)[:200])
+        del errs[:-20]
+
+    def _read_new(self) -> list[str]:
+        """Complete new lines from in.tsv since the last read.
+
+        A trailing line with no newline yet is left for the next read: the
+        plugin may be halfway through appending it.
+        """
         if not self.in_path.exists():
-            return 0
+            return []
         size = self.in_path.stat().st_size
         if size < self._offset:
-            self._offset = 0  # file was truncated/replaced
+            self._offset = 0  # file was truncated/rotated by the plugin
         if size == self._offset:
-            return 0
-        with self.in_path.open("r", encoding="utf-8", errors="replace") as fh:
+            return []
+        with self.in_path.open("rb") as fh:
             fh.seek(self._offset)
             chunk = fh.read()
-            self._offset = fh.tell()
+        end = chunk.rfind(b"\n")
+        if end < 0:
+            return []
+        self._offset += end + 1
+        text = chunk[: end + 1].decode("utf-8", errors="replace")
+        return [ln for ln in text.splitlines() if ln.strip()]
+
+    def _handle_timed(self, t: float, line: str) -> dict | None:
+        age_limit = float(self.cfg.get("event_max_age_s", MAX_AGE))
+        if age_limit > 0 and time.monotonic() - t > age_limit:
+            # Waited too long behind a slow model call: answering it now would
+            # reply to something the player has already moved on from.
+            self.stats["in"] += 1
+            self.stats["stale"] += 1
+            return None
+        self._event_t = t
+        try:
+            return self._handle(line)
+        finally:
+            self._event_t = None
+
+    def poll_once(self) -> int:
+        """Read and handle new lines on the calling thread (tests, tools)."""
         handled = 0
-        for line in chunk.splitlines():
-            if line.strip():
-                if self._handle(line) is not None:
-                    handled += 1
+        for line in self._read_new():
+            if self._handle_timed(time.monotonic(), line) is not None:
+                handled += 1
         return handled
 
-    def _run(self) -> None:
+    def _run_reader(self) -> None:
+        # Never blocks on the model: it only reads the file and stamps each
+        # line with when it arrived, so the worker can tell how stale it is.
         while not self._stop.is_set():
             try:
-                self.poll_once()
+                now = time.monotonic()
+                for line in self._read_new():
+                    self._queue.put((now, line))
             except Exception as exc:
                 self.stats["errors"] += 1
-                self.cfg.setdefault("_errors", []).append(str(exc)[:200])
+                self._note_error(exc)
             self._stop.wait(0.25)
+
+    def _run_worker(self) -> None:
+        while not self._stop.is_set():
+            try:
+                t, line = self._queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            try:
+                self._handle_timed(t, line)
+            except Exception as exc:
+                self.stats["errors"] += 1
+                self._note_error(exc)
 
     def start(self) -> None:
         if self._thread is None:
-            self._thread = threading.Thread(target=self._run, name="twelveactors-bridge", daemon=True)
+            self._thread = threading.Thread(target=self._run_reader, name="twelveactors-reader", daemon=True)
+            self._worker = threading.Thread(target=self._run_worker, name="twelveactors-worker", daemon=True)
             self._thread.start()
+            self._worker.start()
 
     def stop(self) -> None:
         self._stop.set()
-        if self._thread:
-            self._thread.join(timeout=3)
+        for th in (self._thread, self._worker):
+            if th:
+                th.join(timeout=3)

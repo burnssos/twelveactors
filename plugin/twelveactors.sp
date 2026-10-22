@@ -64,6 +64,19 @@ char g_sClipsFile[PLATFORM_MAX_PATH];
 char g_sRosterFile[PLATFORM_MAX_PATH];
 int g_iSeq;
 int g_iLastOut;
+// Byte offset into out.tsv already read. Each poll reads only what the daemon
+// appended since, instead of re-reading the whole file every 0.4 s; the file
+// can still be long-lived, and a full re-read grows into a frame-time cost.
+int g_iOutPos;
+// in.tsv is rotated (deleted and started fresh) once it passes this size. The
+// daemon notices the file shrank below its read offset and starts from the top.
+#define IN_ROTATE_BYTES (1024 * 1024)
+// Radio diagnostics. Native = DoD:S's own radio menu reached the server as a
+// voice_* / voicemenu command; menu = a pick from the server-side sm_ta_radio
+// menu. sm_ta_status prints both, which is how to tell on a given server
+// whether the native path works at all (see the note at OnPluginStart).
+int g_iNativeRadio;
+int g_iMenuRadio;
 Handle g_hPoll;
 Handle g_hRoster;
 bool g_bClipsPrecached;
@@ -149,10 +162,22 @@ public void OnPluginStart()
     RegConsoleCmd("sm_ta_radiosim", Command_RadioSim, "Twelve Actors: simulate a radio pick by index, e.g. sm_ta_radiosim 14");
     RegConsoleCmd("sm_ta_voices", Command_Voices, "Twelve Actors: list each client's voice pitch and gain");
 
-    // DoD:S implements the radio menu with named client commands
-    // (voice_attack, voice_hold, ...) rather than the HL2 "voicemenu <m> <i>"
-    // pair; C/V/B only send voicemenu1/2/3 to open the menu client-side. Hook
-    // both families and dedupe, so one press yields exactly one event.
+    // Radio calls reach the daemon by two paths.
+    //
+    // 1. Native: DoD:S's own radio menu. The server binary implements named
+    //    commands (voice_attack, voice_hold, ...) and an item pick is expected
+    //    to arrive as one of them, or as an HL2-style "voicemenu <m> <i>".
+    //    These listeners catch both families and dedupe, so one pick yields one
+    //    event. UNVERIFIED: on the reference server ta_cmdspy saw none of these
+    //    arrive from a live player pressing the radio keys, so the path may be
+    //    dead on current clients. It is kept because it costs nothing when
+    //    idle, and it is counted (g_iNativeRadio, shown by sm_ta_status as
+    //    native_radio=N) so one round with a real player settles it per server.
+    //
+    // 2. Server-side menu: sm_ta_radio <page> opens a SourceMod menu whose
+    //    picks are known to arrive (counted as menu_radio=N). This is the path
+    //    to rely on. If native_radio stays 0 after players have used their
+    //    radio keys, only this path works on that server.
     AddCommandListener(OnClientVoiceMenu, "voicemenu");
     for (int i = 0; i < sizeof(g_sVoiceCmds); i++) {
         AddCommandListener(OnClientVoice, g_sVoiceCmds[i]);
@@ -165,6 +190,7 @@ public void OnPluginStart()
     // Adopt the highest out.tsv seq at load time as well: a plugin reload does
     // not fire OnMapStart, and starting from 0 replays every historical bark.
     g_iLastOut = HighestOutSeq();
+    g_iOutPos = OutFileSize();
 
     StartTimers();
     EnsureDataDir();
@@ -174,8 +200,10 @@ public void OnPluginStart()
 
 public void OnMapStart()
 {
-    // Never replay lines from before this map: adopt the highest seq on disk.
+    // Never replay lines from before this map: adopt the highest seq on disk
+    // and start reading from the current end of the file.
     g_iLastOut = HighestOutSeq();
+    g_iOutPos = OutFileSize();
     g_bClipsPrecached = false;
     CreateTimer(1.0, Timer_Precache);
     // A repeating timer does not survive a map change here, and a dead poll
@@ -210,6 +238,27 @@ int HighestOutSeq()
     }
     delete f;
     return best;
+}
+
+// Size of out.tsv in bytes, 0 when it does not exist yet. The daemon keeps the
+// file short (it rewrites it to its last 64 lines past 256 KB), so the full
+// scan in HighestOutSeq at map start stays cheap.
+int OutFileSize()
+{
+    int size = FileSize(g_sOutFile);
+    return size > 0 ? size : 0;
+}
+
+// Start in.tsv afresh once it passes IN_ROTATE_BYTES. The daemon reads it within
+// a quarter of a second of each write, so by the time it is this large every
+// line in it has long been consumed.
+void RotateInFile()
+{
+    if (FileSize(g_sInFile) > IN_ROTATE_BYTES) {
+        if (DeleteFile(g_sInFile)) {
+            LogMessage("[twelveactors] rotated in.tsv (over %d bytes)", IN_ROTATE_BYTES);
+        }
+    }
 }
 
 void EnsureDataDir()
@@ -267,6 +316,7 @@ public Action Timer_Roster(Handle timer)
         if (g_cvDebug.BoolValue) LogMessage("[twelveactors] poll timer was gone, rebuilt by roster watchdog");
     }
     if (!g_cvEnable.BoolValue) return Plugin_Continue;
+    RotateInFile();
     File f = OpenFile(g_sRosterFile, "w");
     if (f == null) return Plugin_Continue;
     for (int i = 1; i <= MaxClients; i++) {
@@ -336,6 +386,7 @@ public Action OnClientVoiceMenu(int client, const char[] command, int argc)
     // bot's radio call: the daemon refuses it and the label file is for humans.
     if (IsFakeClient(client)) return Plugin_Continue;
     if (argc < 1) return Plugin_Continue;  // menu open, nothing chosen yet
+    g_iNativeRadio++;  // counted before dedupe and the human gate: did it arrive at all?
     float now = GetGameTime();
     if (g_fLastVoice[client] > 0.0 && now - g_fLastVoice[client] < 0.75) return Plugin_Continue;
 
@@ -357,6 +408,8 @@ public Action OnClientVoice(int client, const char[] command, int argc)
 {
     if (!g_cvEnable.BoolValue || client <= 0 || client > MaxClients) return Plugin_Continue;
     if (IsFakeClient(client)) return Plugin_Continue;  // bot callout, not a player order
+    // The microphone key is not a radio call; only count real voice_* picks.
+    if (StrContains(command, "voicerecord") == -1) g_iNativeRadio++;
     float now = GetGameTime();
     if (g_fLastMenu[client] > 0.0 && now - g_fLastMenu[client] < 0.75) return Plugin_Continue;
 
@@ -409,12 +462,36 @@ public Action Timer_Poll(Handle timer)
     // the last human left can never be replayed to whoever joins next.
     bool quiet = g_cvRequireHuman.BoolValue && CountHumans() == 0;
 
+    // Cheap check first: with nothing new appended there is nothing to open.
+    int size = FileSize(g_sOutFile);
+    if (size < 0) return Plugin_Continue;
+    // Smaller than where we stopped: the daemon trimmed the file (it rewrites
+    // it to its tail). Start from the top; the seq check below skips every
+    // line that was already played.
+    if (size < g_iOutPos) g_iOutPos = 0;
+    if (size == g_iOutPos) return Plugin_Continue;
+
     File f = OpenFile(g_sOutFile, "r");
     if (f == null) return Plugin_Continue;
+    f.Seek(g_iOutPos, SEEK_SET);
 
     char line[MAX_LINE];
     int processed;
-    while (!f.EndOfFile() && processed < 24 && f.ReadLine(line, sizeof(line))) {
+    while (processed < 24) {
+        int start = f.Position;
+        if (!f.ReadLine(line, sizeof(line))) break;
+        int len = strlen(line);
+        if (len == 0) break;
+        if (line[len - 1] != '\n' && f.EndOfFile()) {
+            // The daemon is mid-write: leave this line for the next poll.
+            g_iOutPos = start;
+            break;
+        }
+        // (A line longer than the buffer also lacks '\n' but is not at EOF; it
+        // is processed truncated and its remainder parses as seq 0 and is
+        // skipped. The daemon caps lines well under MAX_LINE, so this is a
+        // safety net, not a path.)
+        g_iOutPos = f.Position;
         TrimString(line);
         if (line[0] == '\0') continue;
 
@@ -615,6 +692,10 @@ public Action Command_Status(int client, int args)
         CountHumans(), g_cvRequireHuman.IntValue, g_iGated);
     ReplyToCommand(client, "[twelveactors] voice pitch=%d proximity_module=%s tuned=%d",
         g_cvVoicePitch.IntValue, FindConVar("sm_ta_proximity_enable") != null ? "loaded" : "absent", g_iTuned);
+    ReplyToCommand(client, "[twelveactors] radio native_radio=%d menu_radio=%d out_pos=%d%s",
+        g_iNativeRadio, g_iMenuRadio, g_iOutPos,
+        (g_iNativeRadio == 0 && g_iMenuRadio > 0)
+            ? "  (players have used the menu but the game's own radio keys never reached the server)" : "");
     return Plugin_Handled;
 }
 
@@ -659,10 +740,11 @@ public Action Command_Test(int client, int args)
     return Plugin_Handled;
 }
 
-// The DoD:S client-side radio menu never reaches the server: ta_cmdspy saw
-// zero voicemenu / voice_* events from a live player pressing C, V and B. So
-// the client binds those keys to "sm_ta_radio <page>" instead and the choice
-// is made in a server-side menu, whose menuselect does arrive.
+// Server-side radio menu: path 2 of the two described at OnPluginStart, and the
+// one known to work. On the reference server ta_cmdspy saw no voicemenu /
+// voice_* commands arrive from a live player using the game's own radio, so
+// players get this menu instead; its menuselect does reach the server. Whether
+// path 1 also works on a given server shows up as native_radio in sm_ta_status.
 char g_sRadioCmd[18][32] = {
     "voice_gogogo", "voice_hold", "voice_coverflanks", "voice_sticktogether",
     "voice_cover", "voice_fallback",
@@ -714,6 +796,7 @@ public int MenuHandler_Radio(Menu menu, MenuAction action, int client, int item)
         if (client <= 0 || client > MaxClients || !IsClientInGame(client)) return 0;
         char cmd[32], text[64];
         menu.GetItem(item, cmd, sizeof(cmd), _, text, sizeof(text));
+        g_iMenuRadio++;
         // Deliberately identical to a typed chat line: the daemon's "say"
         // handler is the one path proven to produce a reply, so the radio
         // menu writes the same event rather than a separate voice event.

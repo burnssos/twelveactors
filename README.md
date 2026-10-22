@@ -82,7 +82,7 @@ Three plugins clear up long-standing problems with RCBot2 bots on DoD:S: kill-fe
 ### 📦 Light to run
 - The daemon is **Python standard library only**: no pip, no Node, no Docker, no database server.
 - **One idempotent installer** compiles the plugins, installs the daemon as a systemd service, indexes the clips and binds the cast. Re-running it is the upgrade path.
-- **Seven test suites** and a preflight check refuse to deploy a tree with a missing safety gate.
+- **Eight test suites** and a preflight check refuse to deploy a tree with a missing safety gate.
 
 ## Bot fixes for DoD:S
 
@@ -268,9 +268,18 @@ a bare server.
   "api_key": "<your-key>",
   "port": 8377,
   "timeout": 20,
-  "dialog_requires_human": true
+  "dialog_requires_human": true,
+  "event_max_age_s": 6,
+  "reply_max_age_s": 15
 }
 ```
+
+**Timeliness.** `event_max_age_s` and `reply_max_age_s` keep slow model calls from producing stale replies. A separate reader thread stamps each event the moment it arrives, so a slow call can't hide how long the next ones have been waiting.
+
+- `event_max_age_s` (default 6): an event still queued after this many seconds is dropped unanswered, and costs nothing.
+- `reply_max_age_s` (default 15): a reply that is ready more than this long after the question is discarded instead of played, and the bot's cooldown is released so it can answer the next line promptly. Set it to `0` to always play replies, however late.
+
+Both appear in `/healthz` under `bridge.stale` and `bridge.late`.
 
 `model` and `base_url` are yours to choose: the daemon needs an
 OpenAI-compatible `/chat/completions` that returns a JSON object and respects
@@ -499,7 +508,8 @@ damages a copy of the tree eight ways to prove the preflight fails loudly rather
 than waving a broken gate through. `test_secrets.py` proves the scanner finds a
 real key and ignores placeholders, `test_rcon.py` pins argument and password
 handling without echoing a secret, and `test_voice.py` pins the core/module voice
-split and the cfg migration; all seven ship with the archive.
+split and the cfg migration, and `test_bridge_timing.py` pins stale-event dropping,
+late-reply discarding and file trimming; all eight ship with the archive.
 `/healthz` reports `scope.filtered` and a per-reason
 breakdown, and the `turns` table now stores the player's `prompt` and the reply
 `source` (`llm`, `filter`, `bark`), so the effect is measurable rather than
@@ -535,12 +545,29 @@ The daemon starts reading at the **end** of `in.tsv`, so restarting it never
 replays the backlog as a burst of stale barks. On map start the plugin adopts the
 highest `seq` in `out.tsv`, so nothing is spoken twice.
 
+**The files look after their own size, so no cron job is needed.**
+
+- The plugin remembers how far into `out.tsv` it has read. Each 0.4 s poll is one file-size check, and it reads only lines added since.
+- Past 256 KB, the daemon rewrites `out.tsv` to its last 64 lines in one atomic swap. The highest `seq` is kept, so neither side repeats or skips a line.
+- The plugin starts `in.tsv` afresh past 1 MB. The daemon notices the file shrank and reads it from the top.
+- `radio_seen.tsv` is cut back to its last 2,000 lines past 512 KB.
+
 ## Quick-key radio (C / V / B)
 
-Those keys never produce a `say`; the client sends `voicemenu <menu> <item>` and
-the server only draws a HUD line. The plugin hooks `voicemenu` (and the legacy
-`voicemenu1/2/3` names) and forwards the raw pair, because DoD:S keeps the label
-table in the client binary where the server cannot read it.
+Radio calls reach the daemon by two paths.
+
+1. **The game's own radio keys (unverified).** A pick from DoD:S's built-in radio menu should arrive at the server as a named command (`voice_attack`, `voice_hold`…) or as `voicemenu <menu> <item>`. The plugin listens for both. On the reference server, though, a command spy saw **none** of these arrive from a live player, so this path may not work on current clients.
+2. **The server-side menu (verified).** `sm_ta_radio <page>` opens a SourceMod menu whose picks are known to reach the server. This is the path to rely on.
+
+To find out which paths work on your server, have someone use both during a round, then run `sm_ta_status`:
+
+```
+[twelveactors] radio native_radio=0 menu_radio=7 ...
+```
+
+`native_radio` counts calls that arrived through path 1, and `menu_radio` counts picks through path 2. If `native_radio` stays at 0 after players have used the game's radio keys, only the menu works on that server, and the status line says so.
+
+For path 1, DoD:S keeps the menu's labels in the client, where the server can't read them, so a raw `voicemenu` pair has to be labelled once, in `radio_map.json`:
 
 Meaning is therefore learned once and cached in `radio_map.json`:
 
@@ -564,7 +591,8 @@ acknowledgement bark, and every pair seen lands in `radio_seen.tsv`.
 | Restart produces a burst of barks | daemon replayed `in.tsv` | fixed: it seeks to end of file |
 | No lines at all | daemon down or key missing | `curl localhost:8377/healthz`, `journalctl -u twelveactors` |
 | Bots go silent right after a roster change or server restart | a script stopped `twelveactors.service` and the restart path never started it (`rename-bots.sh` did exactly this) | `systemctl is-active twelveactors`; `systemctl start twelveactors`. `rename-bots.sh` now starts it on both paths and traps EXIT so an aborted run cannot leave it down |
-| Radio keys do nothing | plugin older than the `voicemenu` hook | recompile and `sm plugins reload twelveactors` |
+| Radio keys do nothing | the game's own radio keys may never reach the server on current clients | run `sm_ta_status`: if `native_radio=0` after players have used the game's radio keys, use the `sm_ta_radio` menu, which always works. See [Quick-key radio](#quick-key-radio-c--v--b) |
+| Bots ignore some messages during busy moments | the model was slow and those events went stale | expected; check `bridge.stale` / `bridge.late` in `/healthz`. Raise `event_max_age_s` / `reply_max_age_s`, or pick a faster model |
 | Bots say nothing while you are not connected | expected: the human-presence gate is on | `sm_ta_status` shows `humans=0 require_human=1`; set `sm_ta_require_human 0` to disable |
 | Bot lines appear as white server text, not team chat | plugin older than the `say_team` delivery, or `sm_ta_team_chat 0`, or the speaker left before the poll | `sm_ta_status` shows `team_chat=1`; engine log shows `"<bot><id><BOT><Axis>" say_team "..."` |
 | A second player gets no answer, or an enemy bot answers into your chat | daemon older than the team-scoped reply fix | `grep -c _names_bot /opt/twelveactors/twelveactors/bridge.py` is 0; `sudo ./install-reply-routing.sh` installs it and restarts the daemon |
