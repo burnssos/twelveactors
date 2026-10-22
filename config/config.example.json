@@ -6,6 +6,9 @@
   "port": 8377,
   "timeout": 20,
   "dialog_requires_human": true,
+  "event_max_age_s": 6,
+  "reply_max_age_s": 15,
+  "_note_timeliness": "event_max_age_s: drop an event still queued after this many seconds (a slow model call made it stale). reply_max_age_s: discard a reply ready this long after the question instead of playing it; 0 = always play.",
   "_note_model": "deepseek-v4-flash-0731 is RECOMMENDED (cheap, JSON mode). Any OpenAI-compatible model that returns a JSON object and honours max_tokens works; put its id here. Switch later with install-model-switch.sh <id>.",
   "_note_base_url": "Your host's OpenAI-compatible base, with the /v1 suffix if the host uses one. Venice example: https://api.venice.ai/api/v1",
   "_note_api_key": "Supplied by you at install time (TWELVEACTORS_API_KEY=...), or edit this file after install. Never commit the real key."

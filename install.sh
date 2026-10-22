@@ -156,6 +156,8 @@ cfg = {
     "port": 8377,
     "timeout": 20,
     "dialog_requires_human": True,
+    "event_max_age_s": 6,
+    "reply_max_age_s": 15,
 }
 json.dump(cfg, open(path, "w"), indent=2)
 open(path, "a").write("\n")
