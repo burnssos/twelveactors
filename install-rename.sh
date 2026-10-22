@@ -120,7 +120,7 @@ run install -o root -g root -m 755 "$SRC/tools/label_radio.py" /usr/local/bin/ta
 note "rollback: mv /usr/local/bin/biv-radio.pre-rename /usr/local/bin/biv-radio"
 
 # ------------------------------------------------------------- 5. plugins
-say "compile the six plugins from source with the server's spcomp (build/*.smx is not trusted: two different copies of twelveactors.smx are committed)"
+say "compile the six plugins from source with the server's spcomp (no .smx is committed any more: build/ held a stale copy of ta_bots_rcbot2 and was removed 21 Oct 2026)"
 note "compiler: $SPCOMP"
 if [ "$DRY_RUN" -eq 0 ]; then
     cp "$SRC"/plugin/twelveactors.sp "$SRC"/plugin/ta_bots_rcbot2.sp \

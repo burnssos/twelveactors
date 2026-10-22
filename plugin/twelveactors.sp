@@ -44,6 +44,7 @@ ConVar g_cvEnable;
 ConVar g_cvSpeak;
 ConVar g_cvDebug;
 ConVar g_cvAutoBind;
+ConVar g_cvRadioKeys;
 ConVar g_cvRequireHuman;
 ConVar g_cvTeamChat;
 ConVar g_cvVoicePitch;
@@ -97,7 +98,20 @@ public void OnPluginStart()
     g_cvEnable = CreateConVar("sm_ta_enable", "1", "Enable the Twelve Actors bridge", FCVAR_NOTIFY);
     g_cvSpeak = CreateConVar("sm_ta_speak", "1", "Play voice clips for generated lines");
     g_cvDebug = CreateConVar("sm_ta_debug", "0", "Log bridge traffic");
-    g_cvAutoBind = CreateConVar("sm_ta_autobind", "1", "Bind C/V/B to the server-side radio menu on join");
+    g_cvAutoBind = CreateConVar("sm_ta_autobind", "1", "Bind the radio menu keys on join");
+    // Which keys to take. DoD:S puts voice on V by default, so the old C/V/B
+    // default silently removed a player's microphone key five seconds after
+    // they connected. 1/2/3 are the weapon slots, which most players leave
+    // unused in favour of the mousewheel. Neither choice is free — the server
+    // cannot read a client's binds (there is no engine mechanism for it), so
+    // autobind always overwrites blind. Hence a convar: a server owner who
+    // disagrees changes this rather than the source, and setting it empty
+    // binds nothing at all.
+    //
+    // Accepts "123" or "cvb" (one key per character) or a comma-separated
+    // list for named keys, e.g. "MOUSE4,MOUSE5,b".
+    g_cvRadioKeys = CreateConVar("sm_ta_radio_keys", "123",
+        "Keys bound to the radio menu pages; empty binds none", FCVAR_NOTIFY);
     // With no human connected there is nobody to hear a bark, so the whole
     // pipeline (event capture, daemon LLM turn, clip playback) is wasted work.
     // Default on: the server idles with 12 bots and generates nothing.
@@ -763,17 +777,59 @@ public void OnConfigsExecuted()
     }
 }
 
+// Parse sm_ta_radio_keys into up to three key names. A comma-separated value
+// allows named keys ("MOUSE4,MOUSE5,b"); without a comma each character is one
+// key, so "123" and "cvb" both behave as expected.
+int ParseRadioKeys(char[][] keys, int maxKeys, int maxLen)
+{
+    char raw[64];
+    g_cvRadioKeys.GetString(raw, sizeof(raw));
+    TrimString(raw);
+    if (raw[0] == '\0') return 0;
+
+    if (StrContains(raw, ",") != -1) {
+        int n = ExplodeString(raw, ",", keys, maxKeys, maxLen);
+        int out;
+        for (int i = 0; i < n; i++) {
+            TrimString(keys[i]);
+            if (keys[i][0] == '\0') continue;
+            if (out != i) strcopy(keys[out], maxLen, keys[i]);
+            out++;
+        }
+        return out;
+    }
+
+    int count;
+    for (int i = 0; raw[i] != '\0' && count < maxKeys; i++) {
+        if (raw[i] == ' ') continue;
+        keys[count][0] = raw[i];
+        keys[count][1] = '\0';
+        count++;
+    }
+    return count;
+}
+
 public Action Timer_AutoBind(Handle timer, any userid)
 {
     int client = GetClientOfUserId(userid);
     if (client <= 0 || !IsClientInGame(client) || IsFakeClient(client)) return Plugin_Stop;
     if (!g_cvAutoBind.BoolValue || !g_cvEnable.BoolValue) return Plugin_Stop;
 
-    ClientCommand(client, "bind c \"sm_ta_radio 0\"");
-    ClientCommand(client, "bind v \"sm_ta_radio 1\"");
-    ClientCommand(client, "bind b \"sm_ta_radio 2\"");
-    PrintToChat(client, "[twelveactors] radio keys bound: C orders, V replies, B tactical. Choose 1-6.");
-    if (g_cvDebug.BoolValue) LogMessage("[twelveactors] auto-bound C/V/B for %L", client);
+    char keys[3][32];
+    int n = ParseRadioKeys(keys, sizeof(keys), 32);
+    if (n == 0) return Plugin_Stop;   // sm_ta_radio_keys empty: bind nothing
+
+    static const char sLabels[][] = { "orders", "replies", "tactical" };
+    char cmd[80], summary[160];
+    for (int i = 0; i < n; i++) {
+        Format(cmd, sizeof(cmd), "bind %s \"sm_ta_radio %d\"", keys[i], i);
+        ClientCommand(client, cmd);
+        Format(summary, sizeof(summary), "%s%s%s %s",
+            summary, i ? ", " : "", keys[i], sLabels[i]);
+    }
+    PrintToChat(client, "[twelveactors] radio keys bound: %s. Choose 1-6.", summary);
+    PrintToChat(client, "[twelveactors] not what you wanted? your server can set sm_ta_autobind 0.");
+    if (g_cvDebug.BoolValue) LogMessage("[twelveactors] auto-bound %s for %L", summary, client);
     return Plugin_Stop;
 }
 

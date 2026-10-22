@@ -16,6 +16,7 @@ SPCOMP=$SM/scripting/spcomp
 INCLUDE=$SM/scripting/include
 BUILD=/tmp/tadeploy
 CFG=/srv/dods/dod/addons/rcbot2/config/config.ini
+. "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
 SRC="$SELF/plugin"
 TARGET=${TARGET_BOTS:-12}
 
@@ -32,18 +33,11 @@ echo "== install plugins"
 install -o root -g root -m 644 "$BUILD/ta_bots_rcbot2.smx" "$BUILD/ta_botjoin.smx" "$SM/plugins/"
 install -o root -g root -m 644 "$BUILD/ta_bots_rcbot2.sp" "$BUILD/ta_botjoin.sp" "$SM/scripting/"
 
-echo "== rcbot2 config: startup bounds only (module re-asserts every pass)"
-cp -n "$CFG" "$CFG.bak" || true
-sed -i -E "s/^rcbotd config min_bots .*/rcbotd config min_bots 0/" "$CFG"
-sed -i -E "s/^rcbotd config max_bots .*/rcbotd config max_bots $TARGET/" "$CFG"
-# Pin ordered profile loading in the file too, so a restart seats bots on
-# profiles 1..N even before the module's first supervisor pass runs.
-if grep -qE '^#?rcbot_nonrandom_profile' "$CFG"; then
-    sed -i -E "s|^#?rcbot_nonrandom_profile .*|rcbot_nonrandom_profile 1|" "$CFG"
-else
-    echo 'rcbot_nonrandom_profile 1' >> "$CFG"
-fi
-grep -nE "^rcbotd config (min|max)_bots|^rcbot_nonrandom_profile" "$CFG"
+echo "== rcbot2 config: startup bounds checked, not edited"
+# The module re-asserts both bounds through the console every supervisor pass,
+# and issues rcbot_nonrandom_profile 1 at load, so the file only covers the
+# ~1s before the plugin is up. Twelve Actors does not write RCBot2's files.
+ta_rcbot_bounds "$CFG" "$TARGET" || exit 1
 
 echo "== reload"
 if [ -p /run/dods/console ]; then

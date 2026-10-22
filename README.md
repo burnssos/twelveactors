@@ -462,12 +462,46 @@ OpenAI-compatible id that returns a JSON object and honours `max_tokens` works.
 
 `./tools/make-source-zip.sh` is the other flavour: same guarantees, but it
 bundles the **entire working tree** rather than the distributable subset —
-every plugin `.sp`, installer, tool, test, card, waypoint set and document,
+every plugin `.sp`, installer, tool, test, card and document,
 plus loose copies of the `.md` files at the archive root and a `START-HERE.md`
 that states the three values to supply. It drops `__pycache__`, `*.pyc`,
 `logs/`, every `*.sqlite*` and `daemon.log`, and rewrites the packaged
 `state/config.json` to `<YOUR_API_BASE>` / `<YOUR_API_KEY>` so no endpoint or
 key travels with it. Output: `~/share/twelveactors-source-<date>.zip`.
+
+## Credits
+
+Twelve Actors supplies dialogue. It supplies no bots, and it supplies no
+waypoints. Both come from **RCBot2**, which is a separate project under a
+separate licence, maintained by other people.
+
+**RCBot2** — [APGRoboCop/rcbot2](https://github.com/APGRoboCop/rcbot2),
+**AGPL-3.0**. Founded by **Cheeseh**; current maintenance, Linux conversion and
+DoD:S waypointing by **[APG]RoboCop[CL]**; with contributions from Ducky1231 /
+Pongo, nosoop, Anonymous Player / caxanga334, Technochips, RussiaTails, Sappho,
+Soft As Hell, and **DNA.styx** for the DoD:S and main config fixes. Bot base from
+Botman's HPB Template. Install it yourself, from its own repository, under its
+own terms.
+
+**The waypoints**, without which the bots cannot navigate a map at all, are
+hand-made and are *not* part of RCBot2's repository — RCBot2's own README
+directs you to [rcbot.bots-united.com/waypoints.php](http://rcbot.bots-united.com/waypoints.php).
+The nine DoD:S sets this project was developed against name **Cheeseh**,
+**[APG]RoboCop[CL]**, **genmac** and **LQ777** in their own file headers.
+
+> **Removed 21 October 2026.** Earlier versions of this repository shipped 26
+> modified `.rcw` waypoint files in `waypoints-final/`, `waypoints-improved/` and
+> `waypoints-v2/`, together with tooling that implemented RCBot2's binary
+> waypoint format. They were the work of the four people named above,
+> redistributed with no attribution and under no grant — these files arrive from
+> a download page under no stated terms, so unlike RCBot2's own code there was
+> never a licence permitting modification or redistribution. All of it has been
+> deleted. The 52 flag corrections that tooling produced are being offered
+> upstream to those authors instead, where they help every RCBot2 server rather
+> than one. Git history and any release built before that date still contain the
+> files.
+
+Get your waypoints from the link above, as RCBot2 intends.
 
 ## Licence
 

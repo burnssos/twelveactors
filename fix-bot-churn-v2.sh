@@ -20,8 +20,11 @@
 # kicks over 90 s.
 HERE=$(cd "$(dirname "$0")" && pwd)
 set -e
+. "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
 
-SMX_SRC=$HERE/build/ta_bots_rcbot2.smx
+TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
+
+SMX_SRC=$(ta_compile ta_bots_rcbot2) || exit 1
 SMX_DST=/srv/dods/dod/addons/sourcemod/plugins/ta_bots_rcbot2.smx
 CFG=/srv/dods/dod/addons/rcbot2/config/config.ini
 TS=$(date +%Y%m%d-%H%M%S)
@@ -35,8 +38,7 @@ echo "[1/4] backups: $SMX_DST.bak.$TS , $CFG.bak.$TS"
 cp "$SMX_SRC" "$SMX_DST"
 chown dod:dod "$SMX_DST"
 chmod 644 "$SMX_DST"
-sed -i 's/^rcbotd config min_bots .*/rcbotd config min_bots 0/' "$CFG"
-sed -i 's/^rcbotd config max_bots .*/rcbotd config max_bots 13/' "$CFG"
+ta_rcbot_bounds "$CFG" 13 warn
 echo "[2/4] installed plugin + config.ini:"
 grep -n '^rcbotd config \(min\|max\)_bots' "$CFG"
 

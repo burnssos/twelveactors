@@ -9,7 +9,11 @@
 #   2. Timer_Roster acts as a watchdog and rebuilds the poll timer if it is
 #      ever null, so a missed hook cannot silence playback permanently.
 HERE=$(cd "$(dirname "$0")" && pwd)
-set -e
+# pipefail matters here: spcomp below is piped into `tail`, and without it the
+# pipeline's status is tail's, which succeeds even when the compile failed. The
+# install step would then ship whatever .smx was already on disk — a stale
+# plugin, silently. Every other build script in this tree already sets it.
+set -eo pipefail
 SRC=$HERE/plugin
 DST=/srv/dods/dod/addons/sourcemod/plugins/twelveactors.smx
 PW=$(grep -oP '(?<=rcon_password ")[^"]+' /srv/dods/dod/cfg/server.cfg)

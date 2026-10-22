@@ -32,14 +32,19 @@ cp "$SRC/config/config.example.json" "$DEST/config/"
 # Curated per-bot pitch. Optional: without it the plugin hashes each name.
 [ -f "$SRC/config/voices.example.tsv" ] && cp "$SRC/config/voices.example.tsv" "$DEST/config/"
 # Tools that ship: anything that runs against a live server and does not bake in
-# a developer's home directory. One-off waypoint-editing scripts stay in the tree.
+# a developer's home directory.
+#
+# No waypoints are shipped. The .rcw files and the tooling that read RCBot2's
+# binary waypoint format were removed on 21 Oct 2026: they were other people's
+# work (Cheeseh, [APG]RoboCop[CL], genmac, LQ777), redistributed unattributed
+# and under no grant. Waypoints are RCBot2's business; get them from
+# rcbot.bots-united.com/waypoints.php as RCBot2's own README directs.
 TOOLS="label_radio.py rcon2.py worlddeath_scan.py install-spawnwatch.sh spawnwatch_capture.py install-ta-echo.sh preflight.py check-secrets.py check-plugin.sh make-handoff-zip.sh"
 for t in $TOOLS; do
   [ -f "$SRC/tools/$t" ] && cp -a "$SRC/tools/$t" "$DEST/tools/"
 done
 cp -a "$SRC/tools/dods_spawnwatch.sp" "$SRC/tools/dods_spawnwatch.smx" "$SRC/tools/ta_echo.sp" "$DEST/tools/" 2>/dev/null || true
 find "$DEST/tools" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
-cp -a "$SRC/waypoints-final" "$DEST/waypoints"
 
 for f in install.sh install-team-chat.sh install-reply-routing.sh install-model-switch.sh \
          install-scope-filter.sh install-voice.sh deploy-bots.sh make-dist.sh README.md TWELVEACTORS-HANDOFF.md \

@@ -12,6 +12,7 @@
 # bypasses the max>min validation in rcbot_subcmds/config.cpp) and let
 # dods_botfill own the roster.
 set -e
+. "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
 
 CFG=/srv/dods/dod/addons/rcbot2/config/config.ini
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -20,8 +21,7 @@ cp -a "$CFG" "$CFG.bak.$STAMP"
 echo "[1/4] backup: $CFG.bak.$STAMP"
 
 # min_bots 0, max_bots -1
-sed -i 's/^rcbotd config min_bots .*/rcbotd config min_bots 0/' "$CFG"
-sed -i 's/^rcbotd config max_bots .*/rcbotd config max_bots -1/' "$CFG"
+ta_rcbot_bounds "$CFG" -1 warn
 echo "[2/4] config.ini now:"
 grep -n '^rcbotd config \(min\|max\)_bots' "$CFG"
 

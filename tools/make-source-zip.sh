@@ -13,7 +13,7 @@
 #   twelveactors-source-<stamp>/
 #     START-HERE.md                  what this is, what to supply, model choice
 #     twelveactors/                       the full working tree, as-is
-#       <every source file, plugin, installer, tool, test, card, waypoint>
+#       <every source file, plugin, installer, tool, test, card>
 #       *.md                         the documents also sit inside the tree
 #     TWELVEACTORS-WORK-PERFORMED.md      loose copies, for reading without unpacking
 #     TWELVEACTORS-HANDOFF.md
@@ -52,7 +52,7 @@ mkdir -p "$TREE"
 
 say "== copying the source tree from $SRC"
 # -a keeps modes and symlinks; the filter drops only what cannot be source.
-# build/ is dropped on purpose: it holds compiled .smx, whose header carries the
+# build/ no longer exists (removed 21 Oct 2026; it held a stale ta_bots_rcbot2.smx).
 # compile time. The verification step below runs the test suites inside the
 # extracted copy, and test_voice.py recompiles when spcomp is reachable — so any
 # .smx in the bundle fails its own checksum a second later. Binaries are also
@@ -91,7 +91,7 @@ cat > "$ROOT/START-HERE.md" <<'MD'
 # Start here
 
 Complete Twelve Actors source tree — the Day of Defeat: Source NPC chat bridge, its
-SourceMod plugins, installers, tools, tests, persona cards and waypoint data —
+SourceMod plugins, installers, tools, tests and persona cards —
 plus every document written about it.
 
 Nothing here costs money to look at, and nothing is pre-configured: the API

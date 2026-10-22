@@ -19,3 +19,8 @@ backup-rename-*/
 *.swp
 *~
 .DS_Store
+
+# Compiled SourcePawn output. Never tracked: a stale committed .smx once
+# shipped a plugin whose source had already been corrected (21 Oct 2026).
+*.smx
+build/

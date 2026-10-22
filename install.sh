@@ -36,6 +36,7 @@ DATA="$SM/data/twelveactors"
 SPCOMP="$SM/scripting/spcomp"
 INCLUDE="$SM/scripting/include"
 RCBOT_CFG="$GAME/dod/addons/rcbot2/config/config.ini"
+. "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
 TARGET_BOTS="${TARGET_BOTS:-12}"
 NO_RESTART="${NO_RESTART:-0}"
 
@@ -201,16 +202,10 @@ echo "== bind the cast to RCBot2 profile slots"
 runuser -u dod -- env PYTHONPATH=/opt/twelveactors python3 -m twelveactors \
     --data "$DATA" bootstrap --install "$GAME" --bots "$TARGET_BOTS"
 
-echo "== rcbot2 startup bounds"
-cp -a "$RCBOT_CFG" "$RCBOT_CFG.bak.$(date +%Y%m%d-%H%M%S)"
-sed -i -E "s/^rcbotd config min_bots .*/rcbotd config min_bots 0/" "$RCBOT_CFG"
-sed -i -E "s/^rcbotd config max_bots .*/rcbotd config max_bots $TARGET_BOTS/" "$RCBOT_CFG"
-if grep -q '^#\?rcbot_nonrandom_profile' "$RCBOT_CFG"; then
-  sed -i -E "s|^#?rcbot_nonrandom_profile .*|rcbot_nonrandom_profile 1|" "$RCBOT_CFG"
-else
-  echo 'rcbot_nonrandom_profile 1' >> "$RCBOT_CFG"
-fi
-grep -nE '^rcbotd config (min|max)_bots|^rcbot_nonrandom_profile' "$RCBOT_CFG"
+echo "== rcbot2 startup bounds (checked, not edited)"
+# Twelve Actors does not write RCBot2's files. rcbot_nonrandom_profile is not
+# checked at all: the module issues it through the console at load.
+ta_rcbot_bounds "$RCBOT_CFG" "$TARGET_BOTS" || exit 1
 
 # The old botfill plugin fought RCBot2's quota; the module replaces it.
 if [ -f "$SM/plugins/dods_botfill.smx" ]; then

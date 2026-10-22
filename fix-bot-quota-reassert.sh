@@ -4,7 +4,7 @@
 # Fix the 24-bot / kick-per-pass churn caused by config.ini landing after the
 # bot module starts.
 #
-# What changed in the module (build/ta_bots_rcbot2.sp):
+# What changed in the module (plugin/ta_bots_rcbot2.sp):
 #   ApplyTarget() used to return early when its computed cap had not changed
 #   since the last call, so a config.ini exec that ran *after* the plugin loaded
 #   (max_bots 24) was never corrected: RCBot2 filled all 24 slots, the module
@@ -20,13 +20,16 @@
 #   sudo sh $HERE/fix-bot-quota-reassert.sh
 HERE=$(cd "$(dirname "$0")" && pwd)
 set -e
+. "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
+
+TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
 
 [ "$(id -u)" = "0" ] || { echo "run with sudo"; exit 1; }
 
 PLUGDIR=/srv/dods/dod/addons/sourcemod/plugins
 RCDIR=/srv/dods/dod/addons/rcbot2/config
 FIFO=/run/dods/console
-SRC=$HERE/build/ta_bots_rcbot2.smx
+SRC=$(ta_compile ta_bots_rcbot2) || exit 1
 TS=$(date +%Y%m%d-%H%M%S)
 
 [ -f "$SRC" ] || { echo "missing $SRC"; exit 1; }
@@ -39,7 +42,7 @@ echo "[2/5] installing module"
 install -o dod -g dod -m 644 "$SRC" "$PLUGDIR/ta_bots_rcbot2.smx"
 
 echo "[3/5] config.ini max_bots 12 (startup state)"
-sed -i 's/^rcbotd config max_bots .*/rcbotd config max_bots 12/' "$RCDIR/config.ini"
+ta_rcbot_bounds "$RCDIR/config.ini" 12 warn
 grep -n 'rcbotd config \(min\|max\)_bots' "$RCDIR/config.ini"
 
 echo "[4/5] reloading module"

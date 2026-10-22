@@ -23,7 +23,6 @@
 
 ConVar g_cvTarget;
 ConVar g_cvEnabled;
-Handle g_hQuotaInterval;
 bool g_bRcbot2;
 int g_iAppliedTarget = -1;
 int g_iPasses;
@@ -56,8 +55,11 @@ public void OnPluginStart()
         "Bots to keep on the server (both bounds of the RCBot2 quota)", FCVAR_NOTIFY,
         true, 0.0, true, 31.0);
 
-    g_hQuotaInterval = FindConVar("rcbot_bot_quota_interval");
-    g_bRcbot2 = (g_hQuotaInterval != null);
+    // Presence check only. FindConVar asks VALVE'S cvar registry whether a
+    // convar of that name has been registered by anyone; it is a question to
+    // the engine, not a reach into RCBot2. The handle is deliberately not
+    // retained, so this module holds no reference to anything of RCBot2's.
+    g_bRcbot2 = (FindConVar("rcbot_bot_quota_interval") != null);
 
     if (!g_bRcbot2) {
         LogMessage("[twelveactors] RCBot2 not present — bot module idle");
@@ -65,7 +67,13 @@ public void OnPluginStart()
     }
 
     // Auto-quota would fight our bounds; min/max become the only logic.
-    SetConVarInt(g_hQuotaInterval, -1);
+    //
+    // Issued as a console command rather than written through a convar handle,
+    // so that EVERY action this module takes is a string handed to Valve's
+    // parser — one an administrator could type by hand, with no handle held
+    // and nothing of RCBot2's addressed directly. The behaviour is identical;
+    // the boundary is not.
+    ServerCommand("rcbot_bot_quota_interval -1");
 
     LoadVoiced();
     HookConVarChange(g_cvTarget, OnTargetChanged);

@@ -12,13 +12,16 @@
 # restore the old cap of 12 that caused the churn.
 HERE=$(cd "$(dirname "$0")" && pwd)
 set -e
+. "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
+
+TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
 
 PLUGDIR=/srv/dods/dod/addons/sourcemod/plugins
 CFG=/srv/dods/dod/addons/rcbot2/config/config.ini
 FIFO=/run/dods/console
 TS=$(date +%Y%m%d-%H%M%S)
-BOTS=$HERE/build/ta_bots_rcbot2.smx
-CAP=$HERE/build/ta_humancap.smx
+BOTS=$(ta_compile ta_bots_rcbot2) || exit 1
+CAP=$(ta_compile ta_humancap) || exit 1
 
 for f in "$BOTS" "$CAP"; do
     [ -f "$f" ] || { echo "missing $f"; exit 1; }
@@ -38,8 +41,7 @@ install -o dod -g dod -m 644 "$CAP"  "$PLUGDIR/ta_humancap.smx"
 echo "[2/5] installed ta_bots_rcbot2.smx + ta_humancap.smx"
 
 # 3. persist the quota settings
-sed -i 's/^rcbotd config min_bots .*/rcbotd config min_bots 0/' "$CFG"
-sed -i 's/^rcbotd config max_bots .*/rcbotd config max_bots 24/' "$CFG"
+ta_rcbot_bounds "$CFG" 24 warn
 grep -n '^rcbotd config \(min\|max\)_bots' "$CFG"
 
 # 4. load / reload
