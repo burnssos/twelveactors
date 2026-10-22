@@ -14,6 +14,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 set -e
 . "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
 
+[ "$(id -u)" = "0" ] || { echo "run with sudo"; exit 1; }
 TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
 
 PLUGDIR=/srv/dods/dod/addons/sourcemod/plugins

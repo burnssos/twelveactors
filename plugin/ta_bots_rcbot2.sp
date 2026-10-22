@@ -44,7 +44,9 @@ ConVar g_cvEnabled;
 bool g_bRcbot2;
 int g_iAppliedTarget = -1;
 int g_iPasses;
-StringMap g_hVoiced;   // exact in-game names of voiced characters
+StringMap g_hVoiced;
+ArrayList g_hOrder;      // cast names in voiced.txt order (C5: deterministic)
+int g_iTyped;            // how many carry a team (0 => pre-v2 file)
 
 public Plugin myinfo = {
     name = "Twelve Actors Bots (RCBot2)",
@@ -184,7 +186,8 @@ public Action Timer_Supervise(Handle timer)
     bool enforce = (g_hVoiced != null && g_hVoiced.Size > 0);
     int target = g_cvTarget.IntValue;
     int voiced = 0;
-    int stray = 0;
+    int strays[MAXPLAYERS + 1];
+    int strayCount = 0;
     StringMap seen = new StringMap();
 
     for (int i = 1; i <= MaxClients; i++) {
@@ -195,8 +198,16 @@ public Action Timer_Supervise(Handle timer)
         // server: RCBot2 re-adds a profile it lost track of, so "John" can be
         // there twice while "Thomas" is missing. Counting clients instead of
         // personas made that look like a full roster and blocked the add.
+        // Case: StringMap keys are exact, StrEqual below is case-insensitive.
+        // Three different policies on one name used to coexist, so a bot named
+        // "john" was simultaneously NOT on the voiced list (a stray) and
+        // OCCUPYING "John" (making it unavailable) -- one impostor removing a
+        // persona from circulation and guaranteeing a stray that can never be
+        // named. Canonicalise to the cast's own spelling before any lookup.
+        char canon[MAX_NAME_LENGTH];
+        if (Canonical(name, canon, sizeof(canon))) strcopy(name, sizeof(name), canon);
         if (enforce && (!g_hVoiced.ContainsKey(name) || seen.ContainsKey(name))) {
-            if (stray == 0) stray = i;
+            if (strayCount < sizeof(strays)) strays[strayCount++] = i;
             continue;
         }
         seen.SetValue(name, 1);
@@ -207,19 +218,31 @@ public Action Timer_Supervise(Handle timer)
     // Anyone not on the voiced list is renamed onto a free persona instead of
     // being kicked: every kick costs a death notice in the kill feed and sends
     // RCBot2 straight back into its add path, which is the add/kick churn.
-    if (stray > 0) {
+    //
+    // EVERY stray is handled in this pass, and the add below still runs. An
+    // earlier version renamed one and returned, so each bot cost two 10 s
+    // passes -- add on pass n, name on pass n+1 -- and a twelve-bot fill took
+    // ~240 s with launcher names visible in the scoreboard, in team chat and
+    // in the kill feed the whole time. That is the same class of problem
+    // BOT-JOIN-FIX.md records as the "ERRORNAME" spam.
+    int repaired = 0;
+    for (int s2 = 0; s2 < strayCount; s2++) {
+        int c = strays[s2];
+        if (!IsClientInGame(c)) continue;
         char persona[MAX_NAME_LENGTH];
         // Match the stray's current team, so repairing a name cannot put a
         // German persona on an Allied bot.
-        if (FindFreeVoiced(persona, sizeof(persona), GetClientTeam(stray))
-            && SetClientName(stray, persona)) {
-            LogMessage("[twelveactors] renamed stray bot (slot %d) to %s", stray, persona);
+        if (FindFreeVoiced(persona, sizeof(persona), GetClientTeam(c))
+            && SetClientName(c, persona)) {
+            LogMessage("[twelveactors] renamed stray bot (slot %d) to %s", c, persona);
+            voiced++;
+            repaired++;
         } else {
-            ServerCommand("kickid %d", GetClientUserId(stray));
-            LogMessage("[twelveactors] no free persona; removed unvoiced bot (slot %d)", stray);
+            ServerCommand("kickid %d", GetClientUserId(c));
+            LogMessage("[twelveactors] no free persona; removed unvoiced bot (slot %d)", c);
         }
-        return Plugin_Continue;
     }
+    if (repaired > 0 && voiced >= target) return Plugin_Continue;
 
     if (voiced < target) {
         // Name and team at creation, in one console string. Verified on the live
@@ -275,14 +298,31 @@ public Action Timer_Supervise(Handle timer)
 // in which case every persona matches every team and this behaves exactly as it
 // did before -- the compatibility direction that matters, since an old data file
 // with a new plugin must keep working.
+// Map any casing of a cast name to the cast's own spelling. Returns false when
+// the name is not a cast member at all.
+bool Canonical(const char[] name, char[] out, int len)
+{
+    if (g_hOrder == null) return false;
+    for (int i = 0; i < g_hOrder.Length; i++) {
+        char cast[MAX_NAME_LENGTH];
+        g_hOrder.GetString(i, cast, sizeof(cast));
+        if (StrEqual(cast, name, false)) { strcopy(out, len, cast); return true; }
+    }
+    return false;
+}
+
 bool FindFreeVoiced(char[] out, int len, int team = TA_TEAM_ANY)
 {
     if (g_hVoiced == null || g_hVoiced.Size == 0) return false;
-    StringMapSnapshot snap = g_hVoiced.Snapshot();
+    if (g_hOrder == null || g_hOrder.Length == 0) return false;
     bool found = false;
-    for (int i = 0; i < snap.Length; i++) {
+    // File order, via g_hOrder. A StringMapSnapshot iterates hash-bucket
+    // order, which is neither voiced.txt order nor stable across SourceMod
+    // versions -- so persona assignment was arbitrary, contradicting README's
+    // "adds bots one at a time, in profile order".
+    for (int i = 0; i < g_hOrder.Length; i++) {
         char name[MAX_NAME_LENGTH];
-        snap.GetKey(i, name, sizeof(name));
+        g_hOrder.GetString(i, name, sizeof(name));
 
         // Wrong faction for the slot being filled. A German persona on an Allied
         // bot used to be prevented by the team= line cmd_bootstrap wrote into
@@ -308,7 +348,6 @@ bool FindFreeVoiced(char[] out, int len, int team = TA_TEAM_ANY)
         }
         if (!used) { strcopy(out, len, name); found = true; break; }
     }
-    delete snap;
     return found;
 }
 
@@ -319,18 +358,9 @@ int ShortestTeam(int target)
 {
     if (g_hVoiced == null || g_hVoiced.Size == 0) return TA_TEAM_ANY;
 
-    // Does the cast carry team data at all? A pre-v2 voiced.txt has none.
-    bool typed = false;
-    StringMapSnapshot snap = g_hVoiced.Snapshot();
-    for (int i = 0; i < snap.Length; i++) {
-        char name[MAX_NAME_LENGTH];
-        snap.GetKey(i, name, sizeof(name));
-        int pteam = TA_TEAM_ANY;
-        g_hVoiced.GetValue(name, pteam);
-        if (pteam != TA_TEAM_ANY) { typed = true; break; }
-    }
-    delete snap;
-    if (!typed) return TA_TEAM_ANY;
+    // Does the cast carry team data at all? A pre-v2 voiced.txt has none;
+    // g_iTyped is counted once at load rather than rescanned every pass.
+    if (g_iTyped == 0) return TA_TEAM_ANY;
 
     int onAllies = 0, onAxis = 0;
     for (int i = 1; i <= MaxClients; i++) {
@@ -358,8 +388,14 @@ void LoadVoiced()
 {
     char path[PLATFORM_MAX_PATH];
     BuildPath(Path_SM, path, sizeof(path), "data/twelveactors/voiced.txt");
+    // Reset both together and BEFORE the missing-file return below: otherwise
+    // g_hVoiced ends up empty while g_hOrder still holds the previous cast,
+    // and the two disagree about who is in it.
     delete g_hVoiced;
     g_hVoiced = new StringMap();
+    delete g_hOrder;
+    g_hOrder = new ArrayList(ByteCountToCells(MAX_NAME_LENGTH));
+    g_iTyped = 0;
 
     File f = OpenFile(path, "r");
     if (f == null) {
@@ -392,8 +428,10 @@ void LoadVoiced()
             if (t == TA_TEAM_ALLIES || t == TA_TEAM_AXIS) { team = t; typed++; }
         }
         g_hVoiced.SetValue(parts[0], team);
+        g_hOrder.PushString(parts[0]);   // file order, for deterministic choice
     }
     delete f;
+    g_iTyped = typed;
     LogMessage("[twelveactors] voiced roster loaded: %d characters (%d with a team)",
         g_hVoiced.Size, typed);
 }
@@ -407,9 +445,10 @@ public Action Command_ReloadVoiced(int client, int args)
 
 public Action Command_Status(int client, int args)
 {
-    ReplyToCommand(client, "[twelveactors] module=%s rcbot2=%d enabled=%d target=%d applied=%d bots=%d",
+    ReplyToCommand(client, "[twelveactors] module=%s rcbot2=%d enabled=%d target=%d applied=%d bots=%d cast=%d typed=%d",
         "rcbot2", g_bRcbot2 ? 1 : 0, g_cvEnabled.IntValue, g_cvTarget.IntValue,
-        g_iAppliedTarget, Native_Count(INVALID_HANDLE, 0));
+        g_iAppliedTarget, Native_Count(INVALID_HANDLE, 0),
+        g_hOrder == null ? 0 : g_hOrder.Length, g_iTyped);
     return Plugin_Handled;
 }
 

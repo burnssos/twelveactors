@@ -22,6 +22,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 set -e
 . "$(cd "$(dirname "$0")" && pwd)/tools/rcbot-preflight.sh"
 
+[ "$(id -u)" = "0" ] || { echo "run with sudo"; exit 1; }
 TA_REPO="$HERE"; . "$HERE/tools/compile.sh"
 
 ta_compile ta_bots_rcbot2 || exit 1

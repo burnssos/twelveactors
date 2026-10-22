@@ -234,6 +234,25 @@ class Bridge:
             map_name=self.cfg.get("map", "dod_anzio"), event=event, memory=memory,
         )
         self._write_out(bot["name"], reply.clip, reply.line)
+
+        # Persist only for names that are actually in the cast.
+        #
+        # Everything durable here is keyed on the in-game name -- bots.name is
+        # a PRIMARY KEY, memory is (bot, key), turns reference it. A bot can
+        # briefly exist under a launcher profile name ("moe", "ERRORNAME")
+        # between RCBot2 creating it and the supervisor renaming it, and a
+        # human talking during that window used to INSERT a permanent row for
+        # a character that does not exist, with memory attached. Nothing ever
+        # cleaned those up, and ensure_bot rewrites faction on conflict, so a
+        # recycled launcher name could carry memory across factions.
+        #
+        # Speaking is unaffected: the reply has already been written out. Only
+        # the permanent record is withheld.
+        if self.personas and bot["name"] not in self.personas:
+            self.stats["unbound_skipped"] = self.stats.get("unbound_skipped", 0) + 1
+            return {"speaker": bot["name"], "line": reply.line, "act": reply.act,
+                    "clip": reply.clip, "source": reply.source}
+
         try:
             dbm.ensure_bot(self.db, bot["name"], faction, self.cards)
         except Exception:
