@@ -118,13 +118,30 @@ def cmd_selftest(args) -> int:
 
 
 def cmd_bootstrap(args) -> int:
-    """Bind personas to RCBot2 profile slots: names and teams in profiles/N.ini.
+    """Assemble the cast and write Twelve Actors' own data files.
 
-    The point is coherence — the name over the bot's head in the scoreboard is
+    The point is coherence -- the name over the bot's head in the scoreboard is
     the character whose voice and memory the daemon uses, not a slot number.
+
+    This used to rewrite `name`, `team` and `class` in RCBot2's own
+    addons/rcbot2/profiles/N.ini files. It no longer touches them, for two
+    reasons established 21 Oct 2026:
+
+      1. They are not ours. RCBot2's repository ships no profiles/ directory at
+         all -- like its waypoints, the profile set arrives from a separate
+         download under no stated terms. Rewriting other people's files in place
+         was never defensible, and it is the same finding that removed the .rcw
+         waypoint tooling.
+      2. It is unnecessary. `rcbotd addbot <class> <team> <name>` sets the name
+         and team at creation, verified on a live server -- a bot added as
+         ZZTest3 kept that name for 37 s with the supervisor disabled. The
+         plugin asks for the persona it wants; nothing has to be pre-seeded.
+
+    Consequence worth knowing: the cast size is now bounded by the card deck
+    rather than by how many N.ini files happen to exist. Previously a missing
+    profile silently shrank the roster.
     """
     data = Path(args.data)
-    install = Path(args.install) / "dod" / "addons" / "rcbot2" / "profiles"
     cards = json.loads((ROOT / "cards" / "dods.json").read_text())
     us, de = cards["american"], cards["german"]
 
@@ -137,47 +154,30 @@ def cmd_bootstrap(args) -> int:
     bound = {}
     written = []
     for idx, persona in enumerate(order, start=1):
-        path = install / f"{idx}.ini"
-        if not path.exists():
-            continue
-        raw = path.read_bytes().decode("utf-8", errors="replace")
-        crlf = "\r\n" in raw
-        lines = raw.replace("\r\n", "\n").split("\n")
-        out = []
-        seen_team = seen_class = False
-        for line in lines:
-            key = line.split("=", 1)[0].strip().lower()
-            if key == "name":
-                line = f"name = {persona['short']}"
-            elif key == "team":
-                line = f"team = {persona['team']}"
-                seen_team = True
-            elif key == "class":
-                # a blank or out-of-range class makes RCBot2 refuse the profile
-                line = "class = 0"
-                seen_class = True
-            elif key.startswith("model"):
-                continue          # stray launcher model breaks the slot
-            out.append(line)
-        if not seen_team:
-            out.append(f"team = {persona['team']}")
-        if not seen_class:
-            out.append("class = 0")
-        text = "\n".join(out)
-        path.write_bytes((text.replace("\n", "\r\n") if crlf else text).encode())
         faction = "american" if persona["team"] == 2 else "german"
         bound[persona["short"]] = {**persona, "faction": faction}
-        written.append(f"{idx:>2} {persona['short']:<12} {persona['name']:<20} team {persona['team']}")
+        written.append(
+            f"{idx:>2} {persona['short']:<12} {persona['name']:<20} team {persona['team']}"
+        )
 
     (data / "personas.json").write_text(json.dumps(bound, indent=2))
-    # The module reads this to enforce that the population is the cast and
-    # nothing else: any bot whose name is not listed gets kicked.
-    (data / "voiced.txt").write_text("\n".join(p["short"] for p in bound.values()) + "\n")
+
+    # voiced.txt v2: name TAB team. The plugin enforces that the population is
+    # the cast and nothing else, and now also that a persona only lands on its
+    # own faction -- which used to be guaranteed by the team= line written into
+    # the profile files.
+    #
+    # The #v2 marker exists so a plugin that only understands one column can say
+    # so instead of keying on "John\t2" and naming a bot that. Deploy the
+    # reader before this writer; see design/PERSONA-BINDING.md.
+    lines = ["#v2 name<TAB>team"]
+    lines += [f"{p['short']}\t{p['team']}" for p in bound.values()]
+    (data / "voiced.txt").write_text("\n".join(lines) + "\n")
+
     print("\n".join(written))
     print(f"bound {len(bound)} personas -> {data / 'personas.json'}")
-    print("restart the game server so RCBot2 re-reads the profiles")
+    print("no RCBot2 file was touched; the plugin names bots at creation")
     return 0
-
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="twelveactors")
@@ -204,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("selftest", help="check index + model + voice")
     s.set_defaults(func=cmd_selftest)
 
-    s = sub.add_parser("bootstrap", help="bind personas to RCBot2 profile slots")
+    s = sub.add_parser("bootstrap", help="assemble the cast; writes personas.json and voiced.txt")
     s.add_argument("--install", default="/srv/dods")
     s.add_argument("--bots", type=int, default=12)
     s.set_defaults(func=cmd_bootstrap)

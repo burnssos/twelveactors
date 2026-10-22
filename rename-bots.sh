@@ -7,7 +7,7 @@
 #   Team German (6):  Walter, Herbert, Alfred, Kurt, Otto, Rolf
 #
 # What it does:
-#   1. backs up cards, personas.json, voiced.txt, profiles 1-12 and state.sqlite
+#   1. backs up cards, personas.json, voiced.txt and state.sqlite
 #   2. rewrites the persona cards (source tree, /opt install, share bundle)
 #   3. stops the conversation daemon (and restarts it on every exit path)
 #   4. renames the bots/memory/turns rows in state.sqlite so each character
@@ -29,7 +29,6 @@ PKG=/opt/twelveactors/twelveactors
 SHARE=/home/admin1/share/twelveactors-1.0.0/twelveactors
 INSTALL=/srv/dods
 DATA=$INSTALL/dod/addons/sourcemod/data/twelveactors
-PROFILES=$INSTALL/dod/addons/rcbot2/profiles
 PY=/usr/bin/python3
 SQLITE=/usr/sbin/sqlite3
 [ -x "$SQLITE" ] || SQLITE=sqlite3
@@ -42,16 +41,12 @@ TS=$(date +%Y%m%d-%H%M%S)
 BACKUP=$SRC/backup-rename-$TS
 
 [ -f "$SRC/twelveactors/cards/dods.json" ] || { echo "cards not found under $SRC"; exit 1; }
-[ -d "$PROFILES" ] || { echo "rcbot2 profiles not found at $PROFILES"; exit 1; }
 
 echo "== backup -> $BACKUP"
 mkdir -p "$BACKUP"
 cp -a "$SRC/twelveactors/cards/dods.json" "$BACKUP/cards-dods.json"
 cp -a "$DATA/personas.json"          "$BACKUP/personas.json"
 cp -a "$DATA/voiced.txt"             "$BACKUP/voiced.txt"
-for f in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    cp -a "$PROFILES/$f.ini" "$BACKUP/profile-$f.ini"
-done
 "$SQLITE" "$DATA/state.sqlite" ".backup '$BACKUP/state.sqlite'"
 echo "   ok"
 
@@ -125,35 +120,26 @@ for r in rows:
 db.close()
 PY
 
-echo "== regenerate profiles, personas.json, voiced.txt"
+# voiced.txt is written below in v2 form (name TAB team). A plugin built before
+# 21 Oct 2026 keys on the whole line and would name a bot "John<TAB>2", with no
+# error anywhere. This script regenerates the data, so it is the script that has
+# to refuse when the installed plugin predates it.
+SMX=/srv/dods/dod/addons/sourcemod/plugins/ta_bots_rcbot2.smx
+if [ -f "$SMX" ] && ! strings "$SMX" 2>/dev/null | grep -q "with a team"; then
+    echo "REFUSING: $SMX predates the v2 voiced.txt format." >&2
+    echo "  It would read 'John<TAB>2' as a persona name and rename bots to that." >&2
+    echo "  Rebuild and install the plugin first:  sudo bash install-source-build.sh" >&2
+    echo "  (override with TA_FORCE=1 if you know the installed plugin is current)" >&2
+    [ "${TA_FORCE:-0}" = "1" ] || exit 1
+fi
+
+echo "== regenerate personas.json and voiced.txt (no RCBot2 file is touched)"
 cd /opt/twelveactors
-"$PY" -m twelveactors --data "$DATA" bootstrap --install "$INSTALL" --bots 12
+"$PY" -m twelveactors --data "$DATA" bootstrap --bots 12
 
-echo "== tidy profile headers"
-"$PY" - "$PROFILES" <<'PY'
-import re, sys
-from pathlib import Path
-
-profiles = Path(sys.argv[1])
-for idx in range(1, 13):
-    p = profiles / f"{idx}.ini"
-    if not p.exists():
-        continue
-    raw = p.read_bytes().decode("utf-8", errors="replace")
-    name = re.search(r"^name\s*=\s*(\S+)", raw, re.M)
-    if not name:
-        continue
-    header = re.search(r"^# Bot Profile id = \d+.*$", raw, re.M)
-    if header:
-        raw = raw.replace(header.group(0),
-                          f"# Bot Profile id = {idx} : Twelve Actors persona ({name.group(1)})")
-    p.write_bytes(raw.encode())
-print("   headers updated")
-PY
-
-chown dod:dod "$PROFILES"/*.ini "$DATA/personas.json" "$DATA/voiced.txt" \
+chown dod:dod "$DATA/personas.json" "$DATA/voiced.txt" \
                "$DATA/state.sqlite" "$DATA/state.sqlite-wal" "$DATA/state.sqlite-shm" 2>/dev/null || true
-chmod 644 "$PROFILES"/*.ini "$DATA/personas.json" "$DATA/voiced.txt"
+chmod 644 "$DATA/personas.json" "$DATA/voiced.txt"
 
 if [ "$RESTART" = "1" ]; then
     echo "== restart game server (RCBot2 reads profiles at startup)"
@@ -187,11 +173,10 @@ systemctl is-active --quiet twelveactors.service || { echo "ERROR: twelveactors.
 
 echo
 echo "== result"
-for f in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    printf '%2s  ' "$f"
-    grep -m1 '^name' "$PROFILES/$f.ini" | sed 's/name *= *//'
-done
-echo "voiced.txt:"
+# The cast is voiced.txt, not RCBot2's profiles: the module asks for each
+# persona by name at creation, so the profile files are irrelevant now and
+# reading them back here would print stale names and look like a failure.
+echo "cast (voiced.txt):"
 sed 's/^/   /' "$DATA/voiced.txt"
 echo "daemon:  $(systemctl is-active twelveactors.service)"
 echo "server:  $(systemctl is-active dods.service)"

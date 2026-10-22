@@ -187,8 +187,10 @@ class Bridge:
 
     def _persona(self, bot: dict) -> dict:
         faction = self.faction_of(bot["team"])
-        # A bound persona wins: bootstrap renames RCBot2 profiles to persona
-        # names, so the name in the scoreboard *is* the character.
+        # A bound persona wins: the bot module asks RCBot2 for each persona by
+        # name at creation (`rcbotd addbot <class> <team> <name>`), so the name
+        # in the scoreboard *is* the character. Nothing is pre-seeded into
+        # RCBot2's profile files any more.
         bound = self.personas.get(bot["name"])
         if bound and bound.get("faction") == faction:
             return bound

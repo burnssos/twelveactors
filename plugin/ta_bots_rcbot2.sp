@@ -19,7 +19,18 @@
 #include <sourcemod>
 #include <sdktools>
 
-#define PLUGIN_VERSION "0.1.0"
+#define PLUGIN_VERSION "0.2.0"
+
+// DoD:S team indices.
+#define TA_TEAM_ANY     0
+#define TA_TEAM_ALLIES  2
+#define TA_TEAM_AXIS    3
+
+// Positional class argument for `rcbotd addbot <class> <team> <name>`. The team
+// and name are what this module needs; the class is filler that RCBot2 resolves
+// itself, and ta_botjoin spawns the bot properly on player_spawn regardless.
+// Verified live with both 0 and 1: identical outcome. Candidate for a convar.
+#define TA_ADDBOT_CLASS 0
 
 ConVar g_cvTarget;
 ConVar g_cvEnabled;
@@ -191,7 +202,10 @@ public Action Timer_Supervise(Handle timer)
     // RCBot2 straight back into its add path, which is the add/kick churn.
     if (stray > 0) {
         char persona[MAX_NAME_LENGTH];
-        if (FindFreeVoiced(persona, sizeof(persona)) && SetClientName(stray, persona)) {
+        // Match the stray's current team, so repairing a name cannot put a
+        // German persona on an Allied bot.
+        if (FindFreeVoiced(persona, sizeof(persona), GetClientTeam(stray))
+            && SetClientName(stray, persona)) {
             LogMessage("[twelveactors] renamed stray bot (slot %d) to %s", stray, persona);
         } else {
             ServerCommand("kickid %d", GetClientUserId(stray));
@@ -201,19 +215,60 @@ public Action Timer_Supervise(Handle timer)
     }
 
     if (voiced < target) {
-        ServerCommand("rcbotd addbot");
+        // Name and team at creation, in one console string. Verified on the live
+        // server 21 Oct 2026: `rcbotd addbot <class> <team> <name>` honours all
+        // three, and the name PERSISTS -- a bot added as ZZTest3 was still
+        // ZZTest3 after 37 s with this module disabled. (Earlier renames to
+        // Frank/Walter were this module's own stray path, not RCBot2 reclaiming
+        // the name from a profile.)
+        //
+        // This matters beyond tidiness: a bot created with the right name on the
+        // right team is never briefly wrong, so there is no window in which the
+        // daemon can see a persona it does not recognise.
+        int want = ShortestTeam(target);
+        char persona[MAX_NAME_LENGTH];
+        if (want != TA_TEAM_ANY && FindFreeVoiced(persona, sizeof(persona), want)) {
+            char add[128];
+            Format(add, sizeof(add), "rcbotd addbot %d %d %s", TA_ADDBOT_CLASS, want, persona);
+            ServerCommand(add);
+            LogMessage("[twelveactors] adding %s to team %d (%d/%d voiced)", persona, want, voiced, target);
+        } else {
+            // No team data in the cast, or no free persona for the short side:
+            // let RCBot2 pick, and the stray path above will rename or remove.
+            ServerCommand("rcbotd addbot");
+        }
     } else if (voiced > target) {
-        for (int i = 1; i <= MaxClients; i++) {
-            if (!IsClientInGame(i) || !IsFakeClient(i)) continue;
-            ServerCommand("kickid %d", GetClientUserId(i));
-            LogMessage("[twelveactors] over target (%d > %d), removed a bot", voiced, target);
-            break;
+        // Take the surplus from whichever side is over its share, not simply the
+        // first bot found: kicking off the short team leaves the roster the same
+        // size and still unbalanced, and the next pass does it again.
+        int over = ShortestTeam(target);
+        if (over == TA_TEAM_ALLIES) over = TA_TEAM_AXIS;
+        else if (over == TA_TEAM_AXIS) over = TA_TEAM_ALLIES;
+
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = 1; i <= MaxClients; i++) {
+                if (!IsClientInGame(i) || !IsFakeClient(i)) continue;
+                if (pass == 0 && over != TA_TEAM_ANY && GetClientTeam(i) != over) continue;
+                ServerCommand("kickid %d", GetClientUserId(i));
+                LogMessage("[twelveactors] over target (%d > %d), removed a bot from team %d",
+                    voiced, target, GetClientTeam(i));
+                return Plugin_Continue;
+            }
+            if (over == TA_TEAM_ANY) break;
         }
     }
     return Plugin_Continue;
 }
 
-bool FindFreeVoiced(char[] out, int len)
+// Find a persona that no BOT is currently wearing. `team` is DoD:S team index
+// (2 Allies, 3 Axis) to restrict the search to that faction's cast, or
+// TA_TEAM_ANY for no restriction.
+//
+// Personas carry no team when voiced.txt has no second column (a pre-v2 file),
+// in which case every persona matches every team and this behaves exactly as it
+// did before -- the compatibility direction that matters, since an old data file
+// with a new plugin must keep working.
+bool FindFreeVoiced(char[] out, int len, int team = TA_TEAM_ANY)
 {
     if (g_hVoiced == null || g_hVoiced.Size == 0) return false;
     StringMapSnapshot snap = g_hVoiced.Snapshot();
@@ -221,9 +276,25 @@ bool FindFreeVoiced(char[] out, int len)
     for (int i = 0; i < snap.Length; i++) {
         char name[MAX_NAME_LENGTH];
         snap.GetKey(i, name, sizeof(name));
+
+        // Wrong faction for the slot being filled. A German persona on an Allied
+        // bot used to be prevented by the team= line cmd_bootstrap wrote into
+        // RCBot2's profile files; that writing is gone, so the cast's own team
+        // data has to carry it.
+        int pteam = TA_TEAM_ANY;
+        g_hVoiced.GetValue(name, pteam);
+        if (team != TA_TEAM_ANY && pteam != TA_TEAM_ANY && pteam != team) continue;
+
         bool used = false;
         for (int c = 1; c <= MaxClients; c++) {
             if (!IsClientInGame(c)) continue;
+            // Bots only. Without this, a HUMAN who names themselves after a
+            // cast member marks that persona permanently unavailable -- and
+            // because the steady state is every persona in use, the stray
+            // branch then finds nothing free and kicks a legitimate bot every
+            // 10 s, with a death notice each pass, for as long as that player
+            // stays connected.
+            if (!IsFakeClient(c)) continue;
             char current[MAX_NAME_LENGTH];
             GetClientName(c, current, sizeof(current));
             if (StrEqual(current, name, false)) { used = true; break; }
@@ -232,6 +303,48 @@ bool FindFreeVoiced(char[] out, int len)
     }
     delete snap;
     return found;
+}
+
+// How many bots of each faction are wearing a persona, and which faction is
+// furthest below its share of the target. Returns TA_TEAM_ANY when the cast
+// carries no team data, so the caller falls back to letting RCBot2 choose.
+int ShortestTeam(int target)
+{
+    if (g_hVoiced == null || g_hVoiced.Size == 0) return TA_TEAM_ANY;
+
+    // Does the cast carry team data at all? A pre-v2 voiced.txt has none.
+    bool typed = false;
+    StringMapSnapshot snap = g_hVoiced.Snapshot();
+    for (int i = 0; i < snap.Length; i++) {
+        char name[MAX_NAME_LENGTH];
+        snap.GetKey(i, name, sizeof(name));
+        int pteam = TA_TEAM_ANY;
+        g_hVoiced.GetValue(name, pteam);
+        if (pteam != TA_TEAM_ANY) { typed = true; break; }
+    }
+    delete snap;
+    if (!typed) return TA_TEAM_ANY;
+
+    int onAllies = 0, onAxis = 0;
+    for (int i = 1; i <= MaxClients; i++) {
+        if (!IsClientInGame(i) || !IsFakeClient(i)) continue;
+        char name[MAX_NAME_LENGTH];
+        GetClientName(i, name, sizeof(name));
+        if (!g_hVoiced.ContainsKey(name)) continue;
+        int t = GetClientTeam(i);
+        if (t == TA_TEAM_ALLIES) onAllies++;
+        else if (t == TA_TEAM_AXIS) onAxis++;
+    }
+
+    // cmd_bootstrap alternates US/DE when it assembles the cast, so an even
+    // split is the intended shape; the odd bot goes to Allies.
+    int wantAllies = (target + 1) / 2;
+    int wantAxis   = target - wantAllies;
+
+    if (onAllies < wantAllies && (wantAllies - onAllies) >= (wantAxis - onAxis)) return TA_TEAM_ALLIES;
+    if (onAxis < wantAxis) return TA_TEAM_AXIS;
+    if (onAllies < wantAllies) return TA_TEAM_ALLIES;
+    return TA_TEAM_ANY;
 }
 
 void LoadVoiced()
@@ -246,14 +359,36 @@ void LoadVoiced()
         LogMessage("[twelveactors] voiced.txt missing at %s — voiced-only enforcement OFF", path);
         return;
     }
-    char line[64];
+    // Format, v2:  <name> TAB <team>     team = 2 Allies, 3 Axis
+    // Format, v1:  <name>                no team; every persona matches any team
+    //
+    // The whole trimmed line used to become the key, which is why this split
+    // has to be deployed BEFORE any voiced.txt gains a second column: an old
+    // .smx reading a new file would key on "John<TAB>2" and name a bot that,
+    // and the failure is silent all the way to the daemon speaking as a
+    // character the scoreboard does not show.
+    char line[96];
+    int typed = 0;
     while (!f.EndOfFile() && f.ReadLine(line, sizeof(line))) {
         TrimString(line);
         if (line[0] == '\0' || line[0] == '#') continue;
-        g_hVoiced.SetValue(line, 1);
+
+        char parts[2][MAX_NAME_LENGTH];
+        int n = ExplodeString(line, "\t", parts, sizeof(parts), sizeof(parts[]));
+        TrimString(parts[0]);
+        if (parts[0][0] == '\0') continue;
+
+        int team = TA_TEAM_ANY;
+        if (n > 1) {
+            TrimString(parts[1]);
+            int t = StringToInt(parts[1]);
+            if (t == TA_TEAM_ALLIES || t == TA_TEAM_AXIS) { team = t; typed++; }
+        }
+        g_hVoiced.SetValue(parts[0], team);
     }
     delete f;
-    LogMessage("[twelveactors] voiced roster loaded: %d characters", g_hVoiced.Size);
+    LogMessage("[twelveactors] voiced roster loaded: %d characters (%d with a team)",
+        g_hVoiced.Size, typed);
 }
 
 public Action Command_ReloadVoiced(int client, int args)
