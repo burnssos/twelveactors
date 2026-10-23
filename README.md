@@ -4,7 +4,7 @@
 
 **Your bots finally talk back, in character and in their own voices.**
 
-An AI conversation layer for Source-engine bots, built for **Day of Defeat: Source** with SourceMod and RCBot2.
+An AI conversation layer for Source-engine bots, built for **Day of Defeat: Source** with SourceMod and the long-time running DoD:S bot plugin, RCBot2.
 Players type to a bot by name and get an in-character answer in team chat, followed by a real voice line from the game.
 
 ![SourceMod 1.12](https://img.shields.io/badge/SourceMod-1.12-d0a24a)
