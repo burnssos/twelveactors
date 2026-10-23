@@ -86,7 +86,7 @@ Three plugins clear up long-standing problems with RCBot2 bots on DoD:S: kill-fe
 
 ## Bot fixes for DoD:S
 
-RCBot2 is the only bot system for DoD:S, and running it on a public server brings problems most admins have learned to live with. Twelve Actors needed a stable, named roster, so it fixes them at the source. Each fix is a separate SourceMod plugin, and `install.sh` compiles and enables all three.
+RCBot2 was the only bot system for DoD:S when TwelveActors was made, and running it on a public server brings problems most admins have learned to live with. Twelve Actors needed a stable, named roster, so it fixes them at the source. Each fix is a separate SourceMod plugin, and `install.sh` compiles and enables all three.
 
 ### 1. No more `ERRORNAME committed suicide` spam: `ta_botjoin`
 
